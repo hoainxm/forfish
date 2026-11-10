@@ -305,9 +305,13 @@ describe("hồ sơ nghề — lịch, dầu, bãi", () => {
     const co = deXuatLoTrinh(vao("keo-doi", { caTheoNgay: () => hai, baiTheoNgay: (lat) => bai(lat), soNgay: 3 }), NOW);
     expect(co.vung[0].lat).toBeGreaterThan(13);
     expect(co.vung[0].yeuTo?.[0].bai).toBe(100);
-    expect(co.ghiChu.join(" ")).toMatch(/× bãi/);
+    // chữ cho bà con chỉ nói "các bãi được dự báo có cá" — KHÔNG nhắc bãi/chỗ tàu cùng nghề (anh Long 10/11)
     const khong = deXuatLoTrinh(vao("keo-doi", { caTheoNgay: () => hai, soNgay: 3 }), NOW);
-    expect(khong.ghiChu.join(" ")).toMatch(/Chưa có bãi tàu cào đôi/);
+    for (const kq of [co, khong]) {
+      const chu = kq.ghiChu.join(" ");
+      expect(chu).toMatch(/các bãi được dự báo có cá/);
+      expect(chu).not.toMatch(/cùng nghề hay đánh|bãi tàu|Bãi tàu|không ai đánh|thật sự đánh/);
+    }
   });
 
   it("dungBaiTheoNgay: điểm nền ÷ 100 theo ô + ngày; ô không có ⇒ 0; ngày ngoài bộ ⇒ null; mỗi nghề có bãi riêng", () => {

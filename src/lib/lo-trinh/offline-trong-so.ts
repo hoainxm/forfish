@@ -40,7 +40,7 @@ export interface DauVaoTrongSo {
   bienDen: string | null;
   /** tin bão: kiểm được (true) / chưa kiểm được (false) */
   baoKiemDuoc: boolean;
-  /** bãi tàu cùng nghề: ngày đầu của bộ 16 ngày ("YYYY-MM-DD") hoặc null */
+  /** bãi (lớp mật độ theo nghề — tên cho bà con "Bãi dự báo có cá"): ngày đầu của bộ 16 ngày ("YYYY-MM-DD") hoặc null */
   baiTu: string | null;
   /** model-params đã nạp — từng khối */
   thamSo: { trang: boolean; chang: boolean; mayBai: boolean; day: boolean };
@@ -83,13 +83,14 @@ export function bangTrongSo(x: DauVaoTrongSo): DongTrongSo[] {
       ? { ma: "bao", ten: "Tin bão", trangThai: "du", cau: "Đã kiểm tin bão." }
       : { ma: "bao", ten: "Tin bão", trangThai: "mat", cau: "Chưa kiểm được tin bão — app không chặn bão, phải nghe đài." },
   );
-  // bãi tàu cùng nghề — bộ 16 ngày từ baiTu
-  if (!x.baiTu) d.push({ ma: "bai", ten: "Bãi tàu cùng nghề", trangThai: "mat", cau: "Chưa có bãi tàu cùng nghề — chưa kéo lộ trình về chỗ nghề mình hay đánh." });
+  // bãi — bộ 16 ngày từ baiTu. Tên cho bà con là "Bãi dự báo có cá" (anh Long 10/11: không nhắc bãi tàu cùng nghề)
+  const BAI = "Bãi dự báo có cá";
+  if (!x.baiTu) d.push({ ma: "bai", ten: BAI, trangThai: "mat", cau: "Chưa có bãi dự báo có cá của nghề này — lộ trình chỉ dựa vào bản đồ cá." });
   else {
     const het = congNgay(x.baiTu, 15);
-    if (het < x.ngayDi) d.push({ ma: "bai", ten: "Bãi tàu cùng nghề", trangThai: "mat", cau: "Bãi tàu cùng nghề đã quá hạn cho ngày đi — chưa tính bãi." });
-    else if (het < den) d.push({ ma: "bai", ten: "Bãi tàu cùng nghề", trangThai: "thieu", cau: `Bãi tàu cùng nghề chỉ tới ${het.slice(8, 10)}/${het.slice(5, 7)} — mấy ngày cuối chưa tính bãi.` });
-    else d.push({ ma: "bai", ten: "Bãi tàu cùng nghề", trangThai: "du", cau: "Có bãi tàu cùng nghề cả chuyến." });
+    if (het < x.ngayDi) d.push({ ma: "bai", ten: BAI, trangThai: "mat", cau: "Bãi dự báo có cá đã quá hạn cho ngày đi — chưa tính bãi." });
+    else if (het < den) d.push({ ma: "bai", ten: BAI, trangThai: "thieu", cau: `Bãi dự báo có cá chỉ tới ${het.slice(8, 10)}/${het.slice(5, 7)} — mấy ngày cuối chưa tính bãi.` });
+    else d.push({ ma: "bai", ten: BAI, trangThai: "du", cau: "Có bãi dự báo có cá cả chuyến." });
   }
   const ts = (ma: MaTrongSo, ten: string, co: boolean, cauCo: string, cauMat: string) =>
     d.push({ ma, ten, trangThai: co ? "du" : "mat", cau: co ? cauCo : cauMat });
@@ -124,7 +125,7 @@ export function soVoiLucTinh(cu: readonly DongTrongSo[] | null | undefined, moi:
   });
 }
 
-/** Câu tóm tắt cho đầu màn khi mất sóng: "Tính lại bây giờ sẽ mất: sóng gió, bãi tàu cùng nghề — nên xem bản đã lưu." */
+/** Câu tóm tắt cho đầu màn khi mất sóng: "Tính lại bây giờ sẽ mất: sóng gió, bãi dự báo có cá — nên xem bản đã lưu." */
 export function cauMatKhiTinhLai(mat: readonly DongTrongSo[] | null): string | null {
   if (mat == null) return "Bản lưu này chưa ghi lúc tính có những dữ liệu gì — tính lại có thể khác.";
   if (mat.length === 0) return null;

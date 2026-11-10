@@ -652,7 +652,6 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   const doRoi: number[] = [];
   for (let d = 0; d < D; d++) doRoi.push(doRoiTrang(dauNgayVN(ngayDi) + d * NGAY_MS + 22 * 3_600_000)); // đêm 22 giờ
   let thieuBien = false;
-  let coBai = false, thieuBai = false;
   const khungBien = khungBienCuaNghe(nghe);
   for (let i = 1; i < nut.length; i++) {
     if (i === S) continue;
@@ -677,8 +676,6 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
       } catch {
         bx = null; // một chỗ hỏng thì coi như chưa có bãi chỗ đó
       }
-      if (bx == null) thieuBai = true;
-      else coBai = true;
       const bai = heSoBai(bx);
       const ca = x.diem[d];
       x.yeu.push({ ca, trang, doRoi: doRoi[d], songM: b?.songM ?? null, gioKmh: b?.gioKmh ?? null, bien, bai: bx, heSoBai: bai });
@@ -689,19 +686,19 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   }
   const ram = hieuUngRam(nghe);
   ghiChu.push(
-    `Cách chấm mỗi ngày đánh: điểm cá của nghề ${TEN_NGHE[nghe]} (đã gồm chỗ tàu cùng nghề hay đánh tháng này) × trăng ` +
+    `Cách chấm mỗi ngày đánh: các bãi được dự báo có cá của nghề ${TEN_NGHE[nghe]} × trăng ` +
       (ram !== 0
         ? `(sổ tàu năm qua: đêm rằm ${Math.round(Math.abs(ram) * 1000) / 10}% ${ram < 0 ? "ít" : "nhiều"} hơn đêm tối)`
         : daDoTrang(nghe)
           ? "(sổ tàu năm qua: đêm rằm và đêm tối đánh như nhau)"
           : "(chưa có số trăng trong máy — chưa tính)") +
       ` × sóng gió${khungBien ? " lúc đánh (đúng khung giờ của nghề)" : ""} (biển êm giữ nguyên, động nhẹ trừ tới 40%, động mạnh bỏ ngày đó)` +
-      (coBai ? ` × bãi (chỗ tàu ${TEN_NGHE[nghe]} hay đánh mùa này giữ nguyên, chỗ không ai đánh nghề này còn 25%)` : "") +
-      (coDay ? ` × đáy (rạn, chỗ cạn, sát rạn trừ theo mức tàu ${TEN_NGHE[nghe]} thật sự đánh ở đó).` : "."),
+      (coDay ? ` × đáy (trừ rạn, chỗ cạn mà nghề ${TEN_NGHE[nghe]} khó đánh).` : "."),
   );
   if (!coDay) ghiChu.push("Chưa có số đáy biển trong máy — chưa tránh rạn, chỗ cạn theo nghề.");
-  if (!coBai) ghiChu.push(`Chưa có bãi tàu ${TEN_NGHE[nghe]} trong máy — chưa tính chỗ tàu cùng nghề hay đánh.`);
-  else if (thieuBai) ghiChu.push("Bãi tàu cùng nghề chỉ có cho một phần chuyến — những ngày thiếu chưa tính bãi.");
+  /*  CHỮ CHO BÀ CON (anh Long 10/11: "đừng đề cập gì liên quan bãi đánh tàu cùng nghề, chỉ kêu là các bãi được dự báo có
+      cá thôi"): lớp bãi vẫn nhân vào điểm như cũ, nhưng ghi chú KHÔNG nói "tàu cùng nghề" / thiếu bãi — gộp chung vào "các
+      bãi được dự báo có cá". Thiếu lớp này vẫn hiện ở bảng "Dữ liệu dùng lúc tính" (offline-trong-so). */
   if (thieuBien)
     ghiChu.push("Chưa có đủ dự báo sóng gió trong máy cho cả chuyến — những ngày thiếu, lộ trình chưa né được biển động.");
 

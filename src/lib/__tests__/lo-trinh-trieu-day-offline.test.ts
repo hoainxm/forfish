@@ -117,6 +117,14 @@ describe("trọng số khi mất sóng", () => {
     expect(b.every((r) => r.trangThai === "du")).toBe(true);
   });
 
+  it("lớp bãi gọi là 'Bãi dự báo có cá' — mọi trạng thái không nhắc tàu cùng nghề (anh Long 10/11)", () => {
+    for (const baiTu of ["2026-11-08", "2026-10-28", "2026-09-01", null]) {
+      const r = bangTrongSo({ ...du, baiTu }).find((x) => x.ma === "bai")!;
+      expect(r.ten).toBe("Bãi dự báo có cá");
+      expect(`${r.ten} ${r.cau}`).not.toMatch(/cùng nghề|hay đánh/);
+    }
+  });
+
   it("ngoài biển 5 ngày sau: cá cũ, sóng gió + bãi chỉ phủ một phần, bão chưa kiểm ⇒ nói đúng hậu quả", () => {
     const b = bangTrongSo({ ...du, now: du.now + 5 * 86_400_000, bienDen: "2026-11-14", baiTu: "2026-10-28", baoKiemDuoc: false });
     const m = Object.fromEntries(b.map((r) => [r.ma, r]));
