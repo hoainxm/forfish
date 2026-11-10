@@ -71,7 +71,7 @@ export default {
       id: "ngay",
       noi: [
         "Đầu tiên chọn ngày đi, giờ ra cảng, và đi mấy ngày.",
-        "Bấm nhanh bảy, mười lăm hay mười sáu ngày cũng được. Giờ đi app tự để theo giờ tàu cùng nghề hay ra cảng.",
+        "Bấm nhanh bảy, mười lăm hay mười sáu ngày cũng được. Giờ đi app để sẵn theo nghề, muốn thì sửa lại.",
       ],
       async lam({ page, L }) {
         await L.diChuot(page, 110, 205, 900);
@@ -109,7 +109,7 @@ export default {
     {
       id: "tinh",
       noi: [
-        "Bấm Tính. App chấm từng vùng biển theo dự báo cá, trăng, sóng gió lúc đánh, và chỗ tàu cùng nghề hay đánh mùa này.",
+        "Bấm Tính. App tìm các bãi được dự báo có cá, rồi chấm từng ngày theo con trăng và sóng gió lúc đánh.",
       ],
       async lam({ page, L }) {
         await L.cham(page, nut(page, "Tính"), { sau: 300 });
@@ -164,6 +164,7 @@ export default {
         "Bấm Lưu để giữ lộ trình trong máy. Ra khơi mất sóng vẫn mở lại được.",
       ],
       async lam({ page, L }) {
+        await cuonToi(page, L, page.locator('section[aria-label="Kết quả"]').getByRole("button", { name: "Lưu", exact: true }), 420);
         await L.cham(page, page.locator('section[aria-label="Kết quả"]').getByRole("button", { name: "Lưu", exact: true }), { sau: 1200 });
       },
     },
@@ -174,6 +175,8 @@ export default {
         "Đoạn nào sóng gió lớn, app báo đỏ ngay bên dưới để bà con cân nhắc.",
       ],
       async lam({ page, L }) {
+        // nút nằm sát đáy thì thanh điều hướng che ⇒ cuộn lên giữa màn trước khi bấm
+        await cuonToi(page, L, page.locator('button[aria-label^="Xem lộ trình trên bản đồ"]'), 420);
         await L.cham(page, page.locator('button[aria-label^="Xem lộ trình trên bản đồ"]'), { sau: 300 });
         const dongY = page.getByRole("button", { name: "Đồng ý", exact: true }).filter({ visible: true });
         if (await dongY.count()) await L.cham(page, dongY, { sau: 300 });
