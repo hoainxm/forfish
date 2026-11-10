@@ -348,6 +348,20 @@ function docLopCa(caTheoNgay: LoTrinhInput["caTheoNgay"], D: number, heSoO?: (la
   return { buoc, o, ngay, tb, nguong, loai };
 }
 
+/**
+ * Bản `du` chỉ giữ các ô `giu` và tính lại ngưỡng "vùng tốt" (phân vị PHAN_VI_CUM) TRÊN CHÍNH CÁC Ô ĐÓ. Không ô nào ⇒ ngưỡng
+ * vô cực (không gom được vùng). Điểm theo ngày (`ngay`) giữ nguyên — chỉ đổi tập ô được làm hạt giống / mọc vùng.
+ */
+function chiOGiu(du: DuLieuCa, giu: (o: O) => boolean): DuLieuCa {
+  const tb = new Map<number, number>();
+  for (const [k, s] of du.tb) {
+    const o = du.o.get(k);
+    if (o && giu(o)) tb.set(k, s);
+  }
+  const vals = [...tb.values()].sort((x, y) => x - y);
+  return { ...du, tb, nguong: vals.length ? vals[Math.floor(PHAN_VI_CUM * (vals.length - 1))] : Number.POSITIVE_INFINITY };
+}
+
 interface Cum {
   lat: number;
   lon: number;
@@ -609,8 +623,17 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   // Nam, mà đường thẳng từ vịnh Bắc Bộ xuống đó cắt qua đất liền miền Trung (đo với mùa vụ tháng 4).
   // nợ: vùng chỉ tới được QUA vùng khác (không thẳng từ cảng) bị bỏ, nâng cấp khi chặng nối bằng planRoute (đi vòng bờ).
   const gioToiDa = hetNgay(mau.tinhTu === "ngay-di" ? Math.min(D, mau.soNgay) : D);
+  /** chỗ p tới được: đi thẳng từ chỗ xuất phát trong vùng biển, đánh một khung rồi kịp về cảng (giờ chạy P80) */
+  const toiDuoc = (p: LatLon): boolean =>
+    (gioKm(haversineKm(nut[S], p)) + gioKm(haversineKm(p, cang))) * chang.p80HeSo + Math.min(khung.dai, 24) <= gioToiDa + EPS &&
+    doanTrongVung(nut[S], p) &&
+    (S === 0 || doanTrongVung(p, cang));
   const idxVung: number[] = [];
-  for (const c of gomCum(du)) {
+  /*  NGƯỠNG "VÙNG TỐT" TÍNH TRÊN Ô TỚI ĐƯỢC (sửa 2026-11-10): trước đây gom vùng từ top 20% ô CẢ NƯỚC rồi mới lọc vùng tới
+      được ⇒ cảng nằm giữa hai ngư trường lớn trắng tay (lưới vây Quy Nhơn 15 ngày: top 20% nằm ở Côn Sơn/Bắc Bộ, đường thẳng
+      cắt đất liền hoặc không kịp về — 0 vùng dù cá nục cách cảng 16 hải lý; đo 10 cảng × 6 nghề × 7/15 ngày trên bản đồ cá
+      thật: 22/120 ca rỗng). Lọc ô trước rồi lấy phân vị ⇒ luôn chọn vùng tốt NHẤT TRONG TẦM của chính tàu đó. */
+  for (const c of gomCum(chiOGiu(du, toiDuoc))) {
     if (idxVung.length >= TOI_DA_VUNG_UNG_VIEN) break;
     if ((gioKm(haversineKm(nut[S], c)) + gioKm(haversineKm(c, cang))) * chang.p80HeSo + Math.min(khung.dai, 24) > gioToiDa + EPS) continue;
     if (!doanTrongVung(nut[S], c) || (S !== 0 && !doanTrongVung(c, cang))) continue;

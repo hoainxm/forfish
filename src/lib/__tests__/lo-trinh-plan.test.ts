@@ -387,3 +387,31 @@ describe("deXuatLoTrinh — giờ đi, dầu đèn, vừa két, GRASP (2026-11-0
     expect(ms).toBeLessThan(300);
   });
 });
+
+describe("deXuatLoTrinh — ngưỡng vùng tốt tính trên ô tới được (2026-11-10)", () => {
+  /* Ca thật 10/11: lưới vây Quy Nhơn ra 0 vùng — top 20% ô CẢ NƯỚC nằm ở chỗ đường thẳng từ cảng cắt đất liền, ngưỡng gom
+     vùng tính trước khi lọc tầm tới ⇒ ô quanh cảng không bao giờ thành vùng. Dựng lại: một khối ô điểm cao trong vịnh Thái
+     Lan (từ Quy Nhơn đi thẳng phải cắt qua đất liền) + vài ô điểm vừa ngoài khơi Quy Nhơn. */
+  const xa: OCa[] = [];
+  for (let la = 9.0; la <= 10.75 + 1e-9; la += 0.25) for (let lo = 103.25; lo <= 104.0 + 1e-9; lo += 0.25) xa.push({ lat: +la.toFixed(2), lon: +lo.toFixed(2), s: 95 });
+  const gan: OCa[] = [
+    { lat: 13.75, lon: 109.75, s: 45 },
+    { lat: 13.75, lon: 110.0, s: 50 },
+    { lat: 14.0, lon: 109.75, s: 40 },
+    { lat: 13.5, lon: 109.75, s: 40 },
+  ];
+  it("ô ngoài tầm chiếm hết top 20% cả nước ⇒ vẫn đề xuất vùng trong tầm quanh cảng", () => {
+    expect(doanTrongVung(QUY_NHON, { lat: 10, lon: 103.5 })).toBe(false); // tiền đề: không đi thẳng tới khối xa được
+    for (const nghe of ["luoi-vay", "cau-ngu"] as Nghe[]) {
+      const kq = deXuatLoTrinh(input({ nghe, soNgay: 15, caTheoNgay: () => [...xa, ...gan] }), NOW);
+      expect(kq.vung.length, nghe).toBeGreaterThan(0);
+      for (const v of kq.vung) expect(v.lat, nghe).toBeGreaterThan(13);
+      expect(kq.ghiChu.join(" "), nghe).not.toMatch(/Không có vùng cá nào/);
+    }
+  });
+  it("không ô nào tới được ⇒ rỗng + nói ra, không ném", () => {
+    const kq = deXuatLoTrinh(input({ nghe: "luoi-vay", soNgay: 15, caTheoNgay: () => xa }), NOW);
+    expect(kq.vung).toEqual([]);
+    expect(kq.ghiChu.join(" ")).toMatch(/Không có vùng cá nào/);
+  });
+});

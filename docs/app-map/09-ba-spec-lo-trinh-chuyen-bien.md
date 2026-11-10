@@ -2,7 +2,8 @@
 
 > Load khi: task chạm đề xuất/lưu lộ trình chuyến biển, lớp cá cho chuyến dài (pha trộn dự báo × mùa vụ), nguồn dữ liệu cho tầm 16 ngày, hoặc so vị trí hiện tại với tuyến đã lưu.
 covers: src/lib/fish-blend.ts, src/lib/lo-trinh, public/data/fish-climatology.v1.json, src/data/fish-blend-weights.json, scripts/collect-fish-climatology.mjs, scripts/fit-fish-blend-weights.mjs
-last_verified: 2026-11-09
+last_verified: 2026-11-10
+<!-- re-verified: 2026-11-10 — B1 NGƯỠNG VÙNG TỐT TÍNH TRÊN Ô TỚI ĐƯỢC (thấy khi quay video HDSD Chuyến biển: lưới vây Quy Nhơn 15 ngày ra 0 lít · 0 hải lý · "Không có vùng cá nào…"). Gốc: `gomCum` lấy hạt giống từ top 20 % ô CẢ NƯỚC rồi mới lọc vùng đi thẳng từ cảng được ⇒ top 20 % nằm ở Côn Sơn/Bắc Bộ, đường thẳng cắt đất liền ⇒ 0 ứng viên dù cá nục cách cảng 16 hải lý. Đo trên bản đồ cá thật 10/11 + tham số thật: 22/120 ca (10 cảng × 6 nghề × 7/15 ngày) rỗng — câu ngừ Cát Bà/Rạch Giá, lưới vây Quy Nhơn/Nha Trang, cào đôi 6 cảng. Sửa `plan.ts`: `chiOGiu(du, toiDuoc)` lọc ô tới được TRƯỚC, phân vị tính lại trên tập đó; lọc cấp vùng giữ nguyên; ngưỡng điểm quen (`du.nguong`) giữ phân vị cả nước. Sau sửa 120/120 ca ra vùng. Test `lo-trinh-plan.test.ts` (khối ô cao trong vịnh Thái Lan + ô vừa ngoài khơi Quy Nhơn — đỏ trên code cũ). -->
 <!-- re-verified: 2026-11-09c — 6 VIỆC anh Long sau báo cáo hệ số (qua phiên điều phối, nguyên văn: "bỏ cái lít đầu đi, lấy trung bình đc rồi, ko quan tâm nữa, dữ liệu vệ tinh có ko ? chạy chưa ? ảnh hưởng trăng đo đi, đủ dữ liệu sao ko đo, tốc độ dùng đi kết hợp nghiên cứu nghề từ các bài báo khoa học, loài theo nghề thì cứ cho chủ tàu chủ động chọn thôi, đã xác định bãi đánh thường chưa ?"). (1) DẦU TRUNG BÌNH: form bỏ ô "Lít dầu/giờ" + "lít đèn/đêm"; `plan.ts` dùng `he-so.ts dauTrungBinh(nghề)` (model-params `loTrinh.dauTrungBinh`: lít/giờ = 0,13 × CV trung vị nghề — câu ngừ 55 · vây 65 · rê 55 · chụp 93 · cào 55 · cào đôi 96; dầu đèn LED chụp 180 · vây 70 lít/đêm; câu ngừ chưa có bài đo ⇒ không cộng); hết câu "tạm tính"/"khai số lít"; số khai trong hồ sơ tàu giữ nguyên, không dùng. (2) VIIRS: KHÔNG có dữ liệu phát hiện tàu đèn (VBD) trên máy — chỉ có VIIRS diệp lục; chưa chạy; VBD chụp ~01:30 đêm một lần nên không cho trọng số TỪNG GIỜ được (research §12). (3) TRĂNG CÀO: cào đôi −9,7 % [−15,4; −3,3] p 0,002 ⇒ `hieuUngRam.keo-doi` −0,097; cào đơn CI chứa 0 ⇒ 0 = đã đo (`daDoTrang`, ghi chú "đêm rằm và đêm tối như nhau"). (4) RÊ: chặng fit trên chặng có đầu là cảng a 0,79 · 5,06 kn · P80 ×1,31 (sai trung vị 21,4 → 16,3 %), đối chiếu FAO/QĐ 4947 trong `_ghi`. (5) LOÀI: bỏ `loaiTheoNghe`; form có ô "Loài đánh" (FishPicker, cùng `forfish.fishPicks.v1`, ≤3, bắt buộc), `LoTrinhInput.loai`, `dau-vao.ts diemOTheoLoai`/`dungCaTheoNgay(…, loai)`. (6) BÃI QUEN TỪNG TÀU: đo ở GPU (research §12), CHƯA vào app. Test he-so/plan/phase2. -->
 <!-- re-verified: 2026-11-09b — HỆ SỐ P80 THEO CHUYẾN BẢN 3 (anh Long: "cập nhật app"): ranh chuyến mới (giờ đi/về VMS Data Lake + tự dò ở-cảng, `scripts/vet-tau/03_trips.py`) ⇒ chấm chéo trên chặng thử 07–11/2026: học lại a/v TỆ hơn 2–4 điểm sai trung vị ⇒ giữ aGio/vKn; chỉ đổi p80HeSo chụp 1,13 → 1,24 · cào 1,58 → 1,81 · cào đôi 1,74 → 1,98 (phủ P80 75–78 % → 79–81 %). Research vet-tau §11b. -->
 <!-- re-verified: 2026-11-09 — ĐO LẠI THAM SỐ VỚI VMS MỚI (anh Long 09/11: "đã đủ dữ liệu vms rồi"): VMS 12/2025 → 09/11/2026 (139,6 triệu điểm, 517 627 chuyến, 1,10 triệu chặng). `src/data/lo-trinh-params.json` dựng lại `chang` · `gioMayBai` · `dayNghe` · `cuaCang` bằng ĐÚNG luật cũ (script ngoài repo `17_tham_so.py`, chạy trên số 08/11 ra y hệt bản cũ). Backtest thử 07–11/2026 trên 411 534 chặng: sai trung vị 42,9 % (7 kn) → 16,0 %, phủ P80 78,7 %. Đổi nhỏ: câu ngừ a 1,64 · vây 0,98 · chụp 1,42 · cào 0,67 (P80 ×1,58) · cào đôi 0,79 / 4,95 kn (×1,74); máy ở bãi vây 2,99 · cào đôi 12,94 · cào 13,54; cửa con nước 55 (34 ràng buộc như cũ, thêm Cửa Hội). `gioDiThuong` GIỮ (câu/vây/chụp/cào đôi đo lại đỉnh như cũ; cào đơn + rê trải đều). Lớp mật độ tàu `src/data/fleet-density.v1.json` dựng lại tới 08/11 (thêm trọn tháng 10 + tháng 11 — trước đây tháng 11 mượn T10/T12 ×0,5), `FLEET_DENSITY_BUILT` 2026-11-08; ngày bão IBTrACS tới 08/11 (không cơn mới trong hộp Biển Đông sau 02/09). -->
@@ -147,7 +148,7 @@ các mốc (chưa né sóng gió — mỗi chặng còn đi qua `planRoute` khi 
 | Bước | Đã làm | Tham số mặc định (hằng export trong plan.ts) |
 |---|---|---|
 | B0 | Ô/vùng/điểm quen ngoài vùng biển VN được phép (`trongVungBienVN` — đã loại vùng cần chú ý quanh Hoàng Sa, §5 #3) bị bỏ; điểm quen ngoài vùng ⇒ `ghiChu` nêu tên. Đoạn giữa hai mốc lấy mẫu, mẫu nào ngoài vùng mà cách cả hai đầu > 15 km ⇒ đoạn không hợp lệ ⇒ không chọn vùng gây ra đoạn đó | `BUOC_MAU_KM` **2** (đề bài 10 km; đo mùa vụ tháng 4 thấy đoạn Quy Nhơn đi lên lọt mũi đất 13,90°B giữa hai mẫu 10 km) · `SAT_DAU_KM` 15 |
-| B1 | Điểm ô = trung bình các ngày chuyến (`caTheoNgay(d)`), lấy ô ≥ phân vị 80, loang 8 hướng theo bước lưới suy từ dữ liệu (thường 0,25°) **trong bán kính quanh đỉnh** (không giới hạn thì cả dải ven bờ dính thành một vùng nghìn km — cảng Cát Bà trắng tay). Giữ 25 vùng tốt nhất TRONG SỐ vùng đi thẳng từ cảng được | `PHAN_VI_CUM` 0,8 · `BAN_KINH_VUNG_KM` 55 (nợ: số ước) · `TOI_DA_VUNG_UNG_VIEN` 25 |
+| B1 | Điểm ô = trung bình các ngày chuyến (`caTheoNgay(d)`), lấy ô ≥ phân vị 80 **của các ô TỚI ĐƯỢC** (đi thẳng từ chỗ xuất phát trong vùng biển + một khung đánh + kịp về theo giờ P80 — `chiOGiu`, sửa 2026-11-10; trước đây phân vị trên cả nước ⇒ 22/120 ca cảng × nghề × 7/15 ngày ra 0 vùng), loang 8 hướng theo bước lưới suy từ dữ liệu (thường 0,25°) **trong bán kính quanh đỉnh** (không giới hạn thì cả dải ven bờ dính thành một vùng nghìn km — cảng Cát Bà trắng tay). Giữ 25 vùng tốt nhất TRONG SỐ vùng đi thẳng từ cảng được | `PHAN_VI_CUM` 0,8 · `BAN_KINH_VUNG_KM` 55 (nợ: số ước) · `TOI_DA_VUNG_UNG_VIEN` 25 |
 | B2 | Khung = [cảng, điểm quen theo nearest-neighbor, cảng] (điểm quen không kịp/vướng đất ⇒ bỏ + `ghiChu`); chèn vùng tham lam theo prize ÷ giờ chạy thêm, NHẬN khi lịch B3 có lời hơn và đoạn mới hợp lệ; rồi 2-opt | ghé 1–`TOI_DA_CHO_GHE` **4** chỗ (bà con nhập 5 điểm quen thì giữ đủ 5, không thêm vùng) · `TOI_DA_DIEM_QUEN` 5 |
 | B3 | Đánh theo khối 24 giờ, mỗi chỗ ≥1 ngày, ngày dư cho chỗ lời nhất; giá trị ngày = điểm cao nhất của vùng ngày đó × 0,9^ngày-đã-ở. Điểm quen bản đồ cá không phủ ⇒ tính ngang ngưỡng p80 (tin kinh nghiệm thuyền trưởng). Ở thêm không được gì ⇒ về sớm | `GIAM_THEO_NGAY` 0,9 · ngày nên về `NGAY_NEN_VE`: câu ngừ ≤ ngày đánh đầu + 7 · lưới vây 7 · lưới rê 15 · chụp mực 10 · cào 16 · cào đôi 20 ngày từ ngày đi (nợ: vây/rê/chụp mẫu tạm; cào = p75 vết VMS, research §10) |
 | B5 | Dầu = giờ CHẠY × lít/giờ (ghi chú "chưa tính dầu neo, chong đèn"); `thieuDau` khi × 1,3 > két. Bão: `bao === null` ⇒ vẫn tính + "Chưa kiểm được tin bão — nghe đài duyên hải trước khi đi"; điểm bão cách đoạn tuyến < 200 km (`STORM_SAFE_RADIUS_KM`, `distToSegmentKm`) ⇒ `chanBao` "Có bão gần tuyến — chưa nên đi", `vung`/`lich`/`moc` rỗng | `DU_PHONG_DAU` 1,3 · `CUA_SO_BAO_NGAY` 5: điểm bão có `at` (tuỳ chọn) từ hết ngày thứ 5 trở đi KHÔNG chặn; không `at` (GDACS) ⇒ coi như có mặt suốt cửa sổ |
@@ -813,3 +814,32 @@ Phần dưới đây KHÁC tính chất với cả doc: nó không phải đề 
 3. **Mẫu độ sâu dọc cạnh ≤2 km** (trước là 5 km — lưới độ sâu bước ~5,5 km nên mẫu 5 km vẫn để lọt đảo nhỏ giữa hai mẫu).
 4. **Thiếu tin bão thì vẫn tính tuyến nhưng phải nói** — luật ở `stormGateForRoute` (`lib/storms.ts`), xem [07-design-spec](07-design-spec.md).
 5. Tuyến là **heuristic có kiểm chứng**, không phải tối ưu toàn cục — lý do và điều kiện xét lại ở [ADR 0003](../adr/0003-tuyen-dijkstra-mot-nhan.md).
+
+## 9. Nghiệm thu (Acceptance) — bổ sung 2026-11-10
+
+> Mỗi AC trỏ vào test ĐANG CÓ trong `src/lib/__tests__/lo-trinh-plan.test.ts` (`deXuatLoTrinh`). Mục này thêm khi cổng ba-verify chặn
+> commit sửa B1 (09 trước đây không có AC nào — các commit cũ đi qua máy chưa bật cổng). Hành vi không đổi, chỉ ghi ra cho đo được.
+
+### AC-1 — Có cá trong tầm thì luôn có vùng đề xuất · Test: unit
+- Given bản đồ cá có ô điểm cao ở chỗ tàu không đi thẳng tới được (đường thẳng cắt đất liền) VÀ có ô điểm vừa trong tầm quanh cảng
+- When tính lộ trình lưới vây hoặc câu ngừ 15 ngày từ Quy Nhơn
+- Then vẫn ra vùng đánh quanh cảng, không báo "Không có vùng cá nào"
+- Assert `kq.vung.length >= 1` và mọi vùng có `lat > 13` (describe "ngưỡng vùng tốt tính trên ô tới được")
+
+### AC-2 — Không ô nào tới được thì nói thật · Test: unit
+- Given bản đồ cá chỉ có ô ở chỗ tàu không đi thẳng tới được
+- When tính lộ trình
+- Then kết quả rỗng kèm ghi chú, không ném lỗi
+- Assert `kq.vung.length == 0` và ghi chú chứa "Không có vùng cá nào"
+
+### AC-3 — Tuyến không ra ngoài vùng biển Việt Nam · Test: unit
+- Given lưới cá có đốm mạnh nhất quanh Hoàng Sa
+- When tính lộ trình từ Quy Nhơn
+- Then không vùng nào ở vùng cần chú ý, không mẫu tuyến nào ngoài vùng biển VN (trừ sát cảng/điểm)
+- Assert số mẫu ngoài vùng == 0 (describe "tuyến cơ bản")
+
+### AC-4 — Có bão gần tuyến thì không đưa lộ trình · Test: unit
+- Given tin bão cách tuyến dưới 200 km trong cửa sổ max(5 ngày, tới lúc về P80)
+- When tính lộ trình
+- Then trả câu chặn bão, không trả vùng và lịch
+- Assert `kq.chanBao != null` và `kq.vung.length == 0` (describe "cổng bão")
