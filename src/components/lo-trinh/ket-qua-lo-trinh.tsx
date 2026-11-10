@@ -120,7 +120,7 @@ export function KetQuaLoTrinh({
     // Dẫn đường đi từ CẢNG XUẤT BẾN, không từ vị trí điện thoại (người ngồi nhà ở TP.HCM ⇒ chặng đầu vướng đất)
     const cang = kq.moc[0];
     if (cang) guiNoiDi({ lat: cang.lat, lon: cang.lon, ten: tenDi });
-    baoToast(`Đã nạp ${chuoi.length} điểm, đi từ ${tenDi} — ⋯ › ${NHAN.loTrinh}.`, { ms: 8000 });
+    baoToast(`Đã nạp ${chuoi.length} điểm, đi từ ${tenDi} — ⋯ › ${NHAN.dauDuong}.`, { ms: 8000 });
     router.push("/ngu-truong");
   };
   const bamBanDo = () => {
