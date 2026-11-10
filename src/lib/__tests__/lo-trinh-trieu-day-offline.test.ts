@@ -185,11 +185,11 @@ describe("lộ trình dùng con nước + đáy", () => {
     expect(kq.lich.at(-1)!.denNgay).toBeLessThanOrEqual(5);
   });
 
-  it("chỉ báo: không dời giờ, nói giờ nước lớn; chưa có trạm ⇒ nói chưa tính; có số đáy ⇒ '× đáy'", () => {
+  it("chỉ báo: không dời giờ, nói giờ nước lớn; chưa có trạm ⇒ nói chưa tính; có số đáy ⇒ 'đáy biển'", () => {
     const bao = deXuatLoTrinh(vao(gia(false, 10)), NOW);
     expect(bao.lich[0].cau).not.toMatch(/chờ nước/);
     expect(bao.ghiChu.join(" ")).toMatch(/nước lớn ngày đi lúc/);
-    expect(bao.ghiChu.join(" ")).toMatch(/× đáy/);
+    expect(bao.ghiChu.join(" ")).toMatch(/đáy biển/);
     expect(deXuatLoTrinh(vao(null), NOW).ghiChu.join(" ")).toMatch(/Chưa tính con nước ở Quy Nhơn/);
   });
 });

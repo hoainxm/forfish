@@ -156,7 +156,7 @@ export function buildDetail(input: {
 export function validateProductDraft(d: ProductDraft): string | null {
   if (!d.title.trim()) return "Nhập tên sản phẩm/dịch vụ.";
   if (d.vendorKind === "external") {
-    if (!d.vendorName?.trim()) return "Nhập tên đơn vị (sản phẩm ngoài SDWork).";
+    if (!d.vendorName?.trim()) return "Nhập tên đơn vị (sản phẩm ngoài SDVICO).";
     if (!d.contactPhone?.trim() && !d.contactNote?.trim())
       return "Nhập SĐT hoặc ghi chú liên hệ để bà con biết hỏi ai.";
   }

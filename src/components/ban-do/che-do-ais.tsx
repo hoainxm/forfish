@@ -455,7 +455,7 @@ export function AisBanKinh({
               )}
               <p className="mt-1.5 px-1 text-[0.6875rem] leading-snug text-muted">
                 Bản lúc {banLucLabel(ban)}
-                {tuKho ? " (lưu trong máy)" : ""}, khoảng 10 phút một bản, vị trí đã ước. Tàu không bật AIS sẽ không hiện — luôn canh chừng bằng mắt.
+                {tuKho ? " (lưu trong máy)" : ""}, vị trí đã ước. Tàu không bật AIS sẽ không hiện — luôn canh chừng bằng mắt.
               </p>
             </div>
           )}

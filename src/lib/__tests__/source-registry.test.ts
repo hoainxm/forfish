@@ -248,11 +248,11 @@ describe("lowQualityNote — CHỈ nói khi ảnh CŨ (thiếu nguồn KHÔNG do
   it("ảnh nhiệt CŨ → nói chuyện ảnh cũ", () => {
     expect(
       lowQualityNote({ sources: { sst: { stale: true }, chl: { stale: false } } }),
-    ).toBe("Số biển hôm nay lấy từ ảnh cũ — có thể chưa sát.");
+    ).toBe("Bản đồ cá hôm nay có thể chưa sát.");
   });
 
   it("ảnh phù du CŨ cũng nói", () => {
-    expect(lowQualityNote({ sources: { chl: { stale: true } } })).toContain("ảnh cũ");
+    expect(lowQualityNote({ sources: { chl: { stale: true } } })).toContain("chưa sát");
   });
 
   // Chủ dự án chốt 2026-07-27: bà con KHÔNG cần biết chuyện thiếu nguồn phụ

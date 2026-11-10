@@ -29,7 +29,7 @@ export const Q_CHAC = 0.5;
  *  nhầm câu kho (test-ngoai): 21,1 % ⇒ 11,0 %. Rà "trả lời sai nhiều": câu sai tệ hơn chờ máy nhà 3–6 s. */
 export const Q_CHAC_MANG = 0.8;
 /** Kho trượt + không hỏi được máy nhà. */
-export const CAU_CHUA_CHAC = "Câu này Sen Biển chưa chắc. Có sóng bà con hỏi lại, Sen Biển hỏi máy nhà cho.";
+export const CAU_CHUA_CHAC = "Câu này Sen Biển chưa chắc. Có sóng bác hỏi lại nghen.";
 
 // ý đi lại / chặn ngoài phạm vi KHÔNG bao giờ vào kho (an toàn: lọc không được cướp lệnh dẫn đường)
 const KHONG_VAO = new Set(["dan_duong", "dat_cang_nha", "ngoai_pham_vi"]);

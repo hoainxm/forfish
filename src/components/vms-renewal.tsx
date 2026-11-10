@@ -337,8 +337,7 @@ function RenewalWizard({
 
       <div className="mt-3">
         <RefNote tone="var(--t3)" bg="var(--t3-bg)">
-          Máy lấy từ hệ thống giám sát hành trình. App không tự trừ tiền; bà con chủ
-          động chuyển khoản, hạn đổi trên hệ thống thì app báo.
+          App không tự trừ tiền. Gia hạn xong, hạn mới hiện ở đây.
         </RefNote>
       </div>
 
@@ -514,13 +513,12 @@ function RenewalStatusSheet({
                 )}
                 {r.status === "extended" && r.xacNhanST === "cho-xac-nhan" && (
                   <StatusBanner level="warn">
-                    SDVICO báo đã gia hạn. App đang chờ hệ thống giám sát hành trình đổi hạn
-                    {newExpiry ? ` sang ${newExpiry}` : ""} — máy kiểm tra 4 lần mỗi ngày.
+                    SDVICO đã gia hạn, đang chờ cập nhật hạn{newExpiry ? ` sang ${newExpiry}` : ""}.
                   </StatusBanner>
                 )}
                 {r.status === "extended" && r.xacNhanST === "lech" && (
                   <StatusBanner level="danger">
-                    Đã hơn 2 ngày mà hệ thống giám sát hành trình chưa đổi hạn. Bà con gọi SDVICO kiểm tra lại nhé.
+                    Đã hơn 2 ngày mà hạn chưa đổi. Bà con gọi SDVICO nhé.
                   </StatusBanner>
                 )}
 

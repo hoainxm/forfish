@@ -128,19 +128,19 @@ describe("moTaChatDay", () => {
 
   it("≥80 % một loại → 'gần như toàn …', không in số %", () => {
     const cau = moTaChatDay(diem("Co", 92));
-    expect(cau).toBe("Chất đáy: gần như toàn san hô · theo ảnh vệ tinh — tham khảo");
+    expect(cau).toBe("Chất đáy: gần như toàn san hô · tham khảo");
     expect(cau).not.toMatch(/%|thuần/);
   });
 
   it("<80 % → 'lẫn nhiều loại đáy'", () => {
     expect(moTaChatDay(diem("S", 55))).toBe(
-      "Chất đáy: Cát, lẫn nhiều loại đáy · theo ảnh vệ tinh — tham khảo",
+      "Chất đáy: Cát, lẫn nhiều loại đáy · tham khảo",
     );
   });
 
   it("chưa rõ loại / tỷ lệ 0 → chỉ tên loại + nguồn, không bịa mức thuần", () => {
-    expect(moTaChatDay(diem("khac", 95))).toBe("Chất đáy: Chưa rõ loại · theo ảnh vệ tinh — tham khảo");
-    expect(moTaChatDay(diem("R", 0))).toBe("Chất đáy: Đá · theo ảnh vệ tinh — tham khảo");
+    expect(moTaChatDay(diem("khac", 95))).toBe("Chất đáy: Chưa rõ loại · tham khảo");
+    expect(moTaChatDay(diem("R", 0))).toBe("Chất đáy: Đá · tham khảo");
   });
 
   it("không tên tổ chức nước ngoài, không mã thô trên màn hình (nguồn ở prov)", () => {

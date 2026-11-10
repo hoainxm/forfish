@@ -187,8 +187,8 @@ export function stormNoticeText(
   const nghe = "nghe đài duyên hải / Icom.";
   if (online) {
     return tuoi == null
-      ? `Nguồn tin bão đang lỗi, máy chưa có tin nào — ${nghe}`
-      : `Nguồn tin bão đang lỗi, tin trong máy đã cũ ${tuoi} — ${nghe}`;
+      ? `Chưa cập nhật được tin bão, máy chưa có tin nào — ${nghe}`
+      : `Chưa cập nhật được tin bão, tin trong máy đã cũ ${tuoi} — ${nghe}`;
   }
   return tuoi == null
     ? `Chưa hỏi được tin bão lần nào — ${nghe}`
@@ -210,7 +210,7 @@ export function stormNoticeShort(status: StormStatus, now: number): string | nul
  */
 export function stormNoticeSub(status: StormStatus, online: boolean): string | null {
   if (status.kind !== "khong-hoi-duoc") return null;
-  return `${online ? "Nguồn lỗi" : "Mất sóng"} · nghe đài duyên hải / Icom`;
+  return `${online ? "Tin chưa về" : "Mất sóng"} · nghe đài duyên hải / Icom`;
 }
 
 /**

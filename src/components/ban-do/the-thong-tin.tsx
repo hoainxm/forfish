@@ -444,7 +444,7 @@ export function TheTauAis({
               </p>
             )
           ) : (
-            <p className="mt-1.5 text-[0.75rem] text-muted">Tàu này nguồn không giữ mã cố định — chưa xem được đường đi.</p>
+            <p className="mt-1.5 text-[0.75rem] text-muted">Tàu này chưa xem được đường đi.</p>
           )}
         </div>
         <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin tàu" />
@@ -494,7 +494,7 @@ export function TheChatDay({ info, onClose }: { info: ChatDayInfo; onClose: () =
             </p>
           )}
           <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-muted">
-            Theo ảnh vệ tinh — tham khảo
+            Tham khảo
           </p>
         </div>
         <CloseButton variant="goc" onClose={() => onClose()} label="Đóng thông tin chất đáy" />
@@ -609,7 +609,7 @@ export function TheVung({ info, onClose }: { info: VungInfo; onClose: () => void
           )}
           {info.v.thoiGianKhac && (
             <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-danger/80">
-              Hai bảng nhà nước ghi mùa cấm khác nhau ({info.v.thoiGian} · {info.v.thoiGianKhac}) — app lấy cả hai, cần hỏi lại chi cục thuỷ sản.
+              Mùa cấm ghi hai cách ({info.v.thoiGian} · {info.v.thoiGianKhac}) — hỏi lại chi cục thuỷ sản.
             </p>
           )}
           <p className="mt-1 text-[0.8125rem] font-semibold leading-snug text-muted">
@@ -655,7 +655,7 @@ export function TheRan({ info, onClose, bieuTuong, prefs, onDanDuong }: { info: 
               Chỗ nông nhất {info.doSau.nongNhatM.toLocaleString("vi-VN", { maximumFractionDigits: 1 })} m
               {info.doSau.trungViM != null &&
                 ` · phần lớn rạn khoảng ${info.doSau.trungViM.toLocaleString("vi-VN", { maximumFractionDigits: 0 })} m`}
-              <span className="block text-[0.8125rem] text-muted">Số đo từ vệ tinh, sai số khoảng 1 m — máy đã chừa khi vẽ đường</span>
+              <span className="block text-[0.8125rem] text-muted">Sai số khoảng 1 m — máy đã chừa khi vẽ đường</span>
             </p>
           )}
           <DongToaDo lat={info.lat} lon={info.lon} fmt={prefs.coordFormat} />

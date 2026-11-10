@@ -143,14 +143,14 @@ export function decodeChatDay(raw: unknown): ChatDayDiem[] {
 const NGUONG_THUAN = 80;
 
 /** Nguồn nói bằng lời bà con — tên tổ chức nước ngoài chỉ nằm ở `prov`, không lên màn hình. */
-const NGUON_MAN_HINH = "theo ảnh vệ tinh — tham khảo";
+const NGUON_MAN_HINH = "tham khảo";
 
 /**
  * Một dòng cho ô "chạm xem":
  *
- *   ≥80 % một loại  → "Chất đáy: gần như toàn san hô · theo ảnh vệ tinh — tham khảo"
- *   <80 %           → "Chất đáy: San hô, lẫn nhiều loại đáy · theo ảnh vệ tinh — tham khảo"
- *   chưa rõ loại    → "Chất đáy: Chưa rõ loại · theo ảnh vệ tinh — tham khảo"
+ *   ≥80 % một loại  → "Chất đáy: gần như toàn san hô · tham khảo"
+ *   <80 %           → "Chất đáy: San hô, lẫn nhiều loại đáy · tham khảo"
+ *   chưa rõ loại    → "Chất đáy: Chưa rõ loại · tham khảo"
  *
  * Không in con số %: "~90 %" với "ô khá thuần" là cách nói của người làm dữ
  * liệu, không phải của người thả neo (review 2026-09-03). Không in tên tổ

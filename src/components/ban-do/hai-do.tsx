@@ -224,9 +224,8 @@ export function BangChuGiai({
         <CloseButton onClose={dongTay} label="Đóng chú giải" />
       </div>
       <p className="border-b border-foreground/10 bg-field/60 px-4 py-2 text-[0.875rem] font-semibold leading-snug text-foreground/75">
-        Hải đồ hiện dần theo <b>ba mức phóng to</b> (như máy hải đồ thương mại): phóng XA thấy
-        đèn lớn + vật chìm, phóng VỪA thấy phao + cáp, phóng SÁT thấy số đo sâu + chất đáy —
-        và chỉ ở nơi có vật đó. Chỗ nhiều phao gom thành vòng <b>+6</b>, chạm vào là phóng tới.
+        Phóng xa thấy đèn lớn, vật chìm · phóng vừa thấy phao, cáp · phóng sát thấy số đo sâu,
+        chất đáy. Vòng <b>+6</b> là chỗ nhiều phao, chạm để phóng tới.
       </p>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[0.9375rem] font-semibold text-foreground/85">
         {LEGEND_TIERS.map((tang) => (

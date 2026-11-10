@@ -95,7 +95,7 @@ export function bangTrongSo(x: DauVaoTrongSo): DongTrongSo[] {
   const ts = (ma: MaTrongSo, ten: string, co: boolean, cauCo: string, cauMat: string) =>
     d.push({ ma, ten, trangThai: co ? "du" : "mat", cau: co ? cauCo : cauMat });
   ts("trang", "Con trăng", x.thamSo.trang, "Có ảnh hưởng trăng theo nghề.", "Thiếu số trăng — chưa tính đêm sáng trăng.");
-  ts("chang", "Giờ chạy", x.thamSo.chang, "Giờ chạy theo số đo tàu cùng nghề.", "Thiếu số đo giờ chạy — tính dè dặt 5 hải lý/giờ.");
+  ts("chang", "Giờ chạy", x.thamSo.chang, "Giờ chạy theo tốc độ thường gặp của nghề.", "Thiếu số đo giờ chạy — tính dè dặt 5 hải lý/giờ.");
   ts("mayBai", "Dầu lúc đánh", x.thamSo.mayBai, "Dầu gồm giờ máy lúc đánh.", "Thiếu giờ máy lúc đánh — dầu chỉ tính giờ chạy.");
   ts("day", "Đáy biển", x.thamSo.day, "Đã tránh rạn, chỗ cạn theo nghề.", "Thiếu số đáy — chưa tránh rạn, chỗ cạn theo nghề.");
   if (!x.trieu) d.push({ ma: "trieu", ten: "Con nước", trangThai: "mat", cau: "Chưa có bảng con nước — chưa tính giờ ra/vào cửa." });

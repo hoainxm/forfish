@@ -272,9 +272,9 @@ export function StrackingCuaToi({
     return null;
   }
 
-  // Ghi chú nguồn: giờ máy GPU đồng bộ S-Tracking + báo khi đang xem bản lưu.
+  // Ghi chú: giờ cập nhật hạn + báo khi đang xem bản lưu (KHÔNG nêu tên hệ thống — 10/11).
   const ghiChu = [
-    ban.capNhatLuc ? `S-Tracking cập nhật ${gioVn(ban.capNhatLuc)}` : null,
+    ban.capNhatLuc ? `Cập nhật ${gioVn(ban.capNhatLuc)}` : null,
     trangThai === "mat-song" ? "đang xem bản đã lưu" : null,
   ]
     .filter(Boolean)

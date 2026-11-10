@@ -47,7 +47,7 @@ export const SEA_SCALARS: Record<SeaScalarKind, SeaScalarDef> = {
   sss: {
     id: "sss",
     label: "Độ mặn",
-    help: "Nước NHẠT (tím — cửa sông, sau mưa) khác nước MẶN ngoài khơi (xanh đậm); nhiều loài bám theo ranh mặn–nhạt. Vệ tinh đo theo vệt — chỗ trống là chưa quét tới, không phải thiếu cá.",
+    help: "Nước NHẠT (tím — cửa sông, sau mưa) khác nước MẶN ngoài khơi (xanh đậm); nhiều loài bám theo ranh mặn–nhạt. Chỗ trống là chưa có số, không phải thiếu cá.",
     legend: {
       from: "Nhạt — gần cửa sông",
       to: "Mặn — ngoài khơi",

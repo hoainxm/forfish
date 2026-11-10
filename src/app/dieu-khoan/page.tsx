@@ -94,7 +94,7 @@ export default function DieuKhoanPage() {
 
         <Section id="goi" title="6. Gói dịch vụ">
           <p>
-            Một số tính năng (dự báo cá, lớp bản đồ có nguồn trả phí, dẫn đường) chỉ dành cho tài khoản có gói. Giá và hạn
+            Một số tính năng (dự báo cá, một số lớp bản đồ, dẫn đường) chỉ dành cho tài khoản có gói. Giá và hạn
             gói theo thoả thuận khi mua với SDVICO.
           </p>
         </Section>

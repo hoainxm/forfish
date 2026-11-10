@@ -127,7 +127,7 @@ describe("deXuatLoTrinh với trăng × sóng gió", () => {
         expect(y.heSo).toBeGreaterThan(0.9);
       }
     }
-    expect(kq.ghiChu.some((g) => g.startsWith("Cách chấm mỗi ngày đánh"))).toBe(true);
+    expect(kq.ghiChu.some((g) => g.startsWith("Đã tính theo"))).toBe(true);
     expect(kq.ghiChu.some((g) => g.includes("Chưa có đủ dự báo sóng gió"))).toBe(false);
   });
 
@@ -210,7 +210,7 @@ describe("giờ chặng theo số đo đội tàu", () => {
       NOW,
     );
     expect(kq.lich[0].cau).toMatch(/khoảng \d+–\d+ giờ/);
-    expect(kq.ghiChu.join(" ")).toMatch(/tốc độ thật của tàu cùng nghề \(5,3 hải lý\/giờ\)/);
+    expect(kq.ghiChu.join(" ")).toMatch(/tốc độ thường gặp của nghề \(5,3 hải lý\/giờ\)/);
   });
 });
 

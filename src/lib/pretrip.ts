@@ -591,7 +591,7 @@ async function runLayerInner(
           về bản đã lưu, nên máy chủ 500 vẫn cho `ok:true` ⇒ bước này không ném
           ⇒ mẻ tự động ghi mốc và KHOÁ 6 GIỜ dù chẳng lấy được byte mới nào. */
       if (r.ok && (r as { tuKhoOffline?: true }).tuKhoOffline)
-        throw new Error("bản đồ cá: nguồn đang lỗi, mới có bản cũ trong máy");
+        throw new Error("bản đồ cá: chưa cập nhật được, mới có bản cũ trong máy");
       return;
     }
     case "grid":
@@ -720,7 +720,7 @@ export function pretripSteps(points: PretripPoint[]): PretripStep[] {
       /*  Cùng lý do với `runLayerInner`: bản LẤY TỪ KHO không phải "đã tải".
           Thiếu vế này thì máy chủ 500 kéo dài vẫn cho mẻ ra "xanh" + khoá 6 giờ. */
       if ((r as { tuKhoOffline?: true }).tuKhoOffline)
-        throw new Error("bản đồ cá: nguồn đang lỗi, mới có bản cũ trong máy");
+        throw new Error("bản đồ cá: chưa cập nhật được, mới có bản cũ trong máy");
     },
   });
   for (const d of khungLuoi()) {

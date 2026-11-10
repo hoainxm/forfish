@@ -106,7 +106,7 @@ describe("Tính đường — chờ dữ liệu và giải thích đúng điểm
     mocks.plan.mockResolvedValue({ plan: null, failure: "weather-coverage" });
     mount();
     clickCompute();
-    await screen.findByText(/Máy chủ dự báo thời tiết đang quá tải/);
+    await screen.findByText(/Máy chủ dự báo đang bận/);
     expect(document.body.textContent).toContain("Tính lại");
     expect(document.body.textContent).not.toContain("thiếu dữ liệu dự báo");
     expect(document.body.textContent).not.toContain("kiểm tra lại nơi xuất phát");
@@ -127,7 +127,7 @@ describe("Tính đường — chờ dữ liệu và giải thích đúng điểm
     clickCompute();
     await screen.findByText(/chỉ tính theo hải đồ/);
     const t = document.body.textContent ?? "";
-    expect(t).toContain("Máy chủ dự báo đang quá tải");
+    expect(t).toContain("Máy chủ dự báo đang bận");
     expect(t).toContain("Thiếu dự báo sóng gió");
     expect(t).toContain("KHÔNG có số dự báo sóng gió");
     expect(t).toContain("đợi khoảng 1 tiếng");
@@ -157,7 +157,7 @@ describe("Tính đường — chờ dữ liệu và giải thích đúng điểm
     await screen.findByText(/chỉ tính theo hải đồ/);
     const t = document.body.textContent ?? "";
     expect(t).toContain("Không lấy được dự báo sóng gió");
-    expect(t).not.toContain("quá tải");
+    expect(t).not.toContain("đang bận");
   });
 
   it("thiếu phủ dự báo có thông báo riêng thay cho khẳng định đất chặn", async () => {

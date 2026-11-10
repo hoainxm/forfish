@@ -338,7 +338,7 @@ function HangDauMoi({ c, phu, them }: { c: SellContact; phu: string; them: React
                 rel="noopener noreferrer"
                 className="flex min-h-(--h-ctl) items-center text-[0.8125rem] font-semibold text-muted underline"
               >
-                Nguồn
+                Trang web
               </a>
             )}
           </div>

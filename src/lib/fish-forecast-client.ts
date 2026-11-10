@@ -284,7 +284,7 @@ export function savedFishMark(): {
  */
 export function lowQualityNote(cast: { anhCu?: boolean }): string | null {
   // máy chủ tính sẵn cờ `anhCu` (ảnh nhiệt/phù du cũ = cả bản đồ lệch) — máy không cần biết nguồn nào
-  return cast.anhCu ? "Số biển hôm nay lấy từ ảnh cũ — có thể chưa sát." : null;
+  return cast.anhCu ? "Bản đồ cá hôm nay có thể chưa sát." : null;
 }
 
 /**

@@ -109,7 +109,7 @@ describe("forecastConfidence", () => {
     // mô hình lệch nhau nhiều (conf 0.2) ở ngay ngày mai → cảnh báo
     const shaky = forecastConfidence(1, 0.2);
     expect(shaky.tone).toBe("warn");
-    expect(shaky.label).toContain("lệch nhau");
+    expect(shaky.label).toContain("Kém chắc");
     // đồng thuận cao ở tầm 4–7 ngày → nhẹ nhàng hơn nhãn nền warn
     expect(forecastConfidence(5, 0.9).tone).toBe("ok");
   });

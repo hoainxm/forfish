@@ -31,6 +31,6 @@ describe("moonPhase", () => {
       const note = moonPhase(new Date(NEW + d * day)).note;
       expect(note).not.toMatch(/kém ăn|ăn kém|cá kém|đánh đèn thuận/);
     }
-    expect(moonPhase(new Date(NEW + 14.77 * day)).note).toContain("chưa thấy mực, cá cơm ít đi");
+    expect(moonPhase(new Date(NEW + 14.77 * day)).note).toContain("đèn kém nổi");
   });
 });

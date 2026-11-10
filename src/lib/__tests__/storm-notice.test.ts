@@ -49,7 +49,7 @@ describe("stormNoticeText — chỉ nói cho nhánh khong-hoi-duoc, bằng TUỔ
     expect(t).toContain("đã cũ 3 giờ");
     expect(t).toContain("đài duyên hải");
     expect(t.toLowerCase()).not.toContain("không có bão");
-    expect(t).not.toContain("Nguồn tin bão đang lỗi");
+    expect(t).not.toContain("Chưa cập nhật được tin bão");
     // >48h → ngày
     expect(
       stormNoticeText({ kind: "khong-hoi-duoc", checkedAt: NOW - 3 * 24 * H }, NOW, false),
@@ -64,12 +64,12 @@ describe("stormNoticeText — chỉ nói cho nhánh khong-hoi-duoc, bằng TUỔ
 
   it("máy CÓ sóng mà vẫn hỏng → nói NGUỒN lỗi, không đổ cho máy; vẫn kèm tuổi tin", () => {
     const t1 = stormNoticeText({ kind: "khong-hoi-duoc", checkedAt: NOW - 5 * H }, NOW, true)!;
-    expect(t1).toContain("Nguồn tin bão đang lỗi");
+    expect(t1).toContain("Chưa cập nhật được tin bão");
     expect(t1).toContain("5 giờ");
     expect(t1).not.toContain("mất sóng");
     expect(t1).not.toContain("không có sóng");
     const t2 = stormNoticeText({ kind: "khong-hoi-duoc", checkedAt: null }, NOW, true)!;
-    expect(t2).toContain("Nguồn tin bão đang lỗi");
+    expect(t2).toContain("Chưa cập nhật được tin bão");
     expect(t2).toContain("chưa có tin nào");
   });
 
@@ -87,7 +87,7 @@ describe("stormNoticeText — chỉ nói cho nhánh khong-hoi-duoc, bằng TUỔ
 describe("stormNoticeSub — dòng phụ Trang chủ: vì sao + nghe đài, ngắn một hàng 360px", () => {
   const loi: StormStatus = { kind: "khong-hoi-duoc", checkedAt: NOW - 30 * H };
   it("lỗi nguồn khác mất sóng (S11), luôn nhắc nghe đài", () => {
-    expect(stormNoticeSub(loi, true)).toBe("Nguồn lỗi · nghe đài duyên hải / Icom");
+    expect(stormNoticeSub(loi, true)).toBe("Tin chưa về · nghe đài duyên hải / Icom");
     expect(stormNoticeSub(loi, false)).toBe("Mất sóng · nghe đài duyên hải / Icom");
   });
   it("chỉ nhánh chưa hỏi được; ≤40 ký tự để không rớt dòng (khung 4rem)", () => {

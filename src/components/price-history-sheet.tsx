@@ -269,7 +269,7 @@ export function PriceHistorySheet({
               (VASEP + Khánh Hòa + "giá thật tại cảng có thể khác") đã nằm ở dải
               nguồn của bảng giá NGAY PHÍA SAU sheet này, giữ ở MỘT chỗ. */}
           <p className="mt-3 rounded-xl bg-field px-3 py-2 text-[0.8125rem] leading-snug text-foreground/70">
-            Giá tuần tham khảo — nguồn ghi ở trang Nguồn dữ liệu.
+            Giá tuần tham khảo.
           </p>
         </>
       )}

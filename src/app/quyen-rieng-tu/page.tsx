@@ -208,7 +208,7 @@ export default function QuyenRiengTuPage() {
               luật truy cập: mỗi người chỉ đọc được dữ liệu của chính mình.
             </li>
             <li>
-              <b>Hệ thống chăm sóc khách hàng nội bộ của SDVICO (SDWork)</b> — đồng bộ
+              <b>Hệ thống chăm sóc khách hàng nội bộ của SDVICO</b> — đồng bộ
               tài khoản và dịch vụ cho khách đã mua hàng. Đây là hệ thống nội bộ
               của chính SDVICO.
             </li>

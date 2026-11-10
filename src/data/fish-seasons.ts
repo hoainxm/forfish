@@ -196,7 +196,7 @@ export const FISH_SEASONS: FishSeason[] = [
     species: "Cá ngừ vây vàng",
     months: [4, 5, 6, 7, 8, 9],
     regions: ["dong-nam-bo"],
-    note: "Gió Tây Nam (tháng 4–9): ngư trường dịch xuống khơi Đông Nam Bộ (6°–11°30N, 108–113°E), đáy 200–3000 m; Trường Sa – DK1 có quanh năm (SGGP: luồng cá 11 âm–3 chủ yếu Trường Sa).",
+    note: "Gió Tây Nam (tháng 4–9): ngư trường dịch xuống khơi Đông Nam Bộ (6°–11°30N, 108–113°E), đáy 200–3000 m; Trường Sa – DK1 có quanh năm, luồng cá 11 âm–3 chủ yếu Trường Sa.", // tham khảo: SGGP
   },
   {
     species: "Cá ngừ mắt to",
@@ -277,7 +277,7 @@ export const FISH_SEASONS: FishSeason[] = [
     species: "Cá cơm",
     months: [2, 3, 4, 5],
     regions: ["trung-bo"],
-    note: "Quảng Trị – Huế vụ sớm tháng Giêng–Tư âm lịch (báo địa phương, hai nguồn độc lập, 2026-10-03).",
+    note: "Quảng Trị – Huế vụ sớm tháng Giêng–Tư âm lịch.", // tham khảo: báo địa phương, hai bài độc lập, 2026-10-03
   },
   {
     species: "Cá trích",
@@ -289,7 +289,7 @@ export const FISH_SEASONS: FishSeason[] = [
     species: "Cá trích",
     months: [9, 10, 11, 12, 1, 2, 3, 4],
     regions: ["trung-bo"],
-    note: "Quảng Nam đánh quanh Cù Lao Chàm từ tháng 9 tới tháng 4 (báo địa phương, 2026-10-03).",
+    note: "Quảng Nam đánh quanh Cù Lao Chàm từ tháng 9 tới tháng 4.", // tham khảo: báo địa phương, 2026-10-03
   },
   {
     species: "Cá trích",
@@ -327,7 +327,7 @@ export const FISH_SEASONS: FishSeason[] = [
     species: "Cá chỉ vàng",
     months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     regions: ["tay-nam-bo"],
-    note: "Vịnh Thái Lan có quanh năm, đẻ rộ tháng 2–4 (2026-10-03).",
+    note: "Vịnh Thái Lan có quanh năm, đẻ rộ tháng 2–4.", // 2026-10-03
   },
   {
     // SỬA 2026-10-03 (6 báo địa phương nhất quán): VBB có vụ hè 6–7 (Thanh Hoá
@@ -385,7 +385,7 @@ export const FISH_SEASONS: FishSeason[] = [
     species: "Cá ngừ chấm",
     months: [1, 2, 3, 4, 5, 10, 11, 12],
     regions: ["vinh-bac-bo", "trung-bo", "nam-trung-bo", "dong-nam-bo", "tay-nam-bo"],
-    note: "Cá ngừ ven bờ (neritic), lưới vây/rê ở vịnh Thái Lan, Đông Nam Bộ, Vịnh Bắc Bộ. Tháng rộ chưa có nguồn VN (2026-10-03).",
+    note: "Cá ngừ ven bờ, lưới vây/rê ở vịnh Thái Lan, Đông Nam Bộ, Vịnh Bắc Bộ.", // neritic; tháng rộ chưa có tài liệu VN (2026-10-03)
   },
   {
     species: "Cá cờ (cá cờ buồm)",
@@ -407,7 +407,7 @@ export const FISH_SEASONS: FishSeason[] = [
     species: "Cá ngân",
     months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     regions: ["vinh-bac-bo", "trung-bo", "nam-trung-bo", "dong-nam-bo", "tay-nam-bo"],
-    note: "Cá nổi nhỏ ven bờ 1–80 m, đàn gần rạn và cửa vịnh; lưới vây, lưới rê. Tháng rộ chưa có nguồn.",
+    note: "Cá nổi nhỏ ven bờ 1–80 m, đàn gần rạn và cửa vịnh; lưới vây, lưới rê.", // tháng rộ chưa có tài liệu
   },
 
   // ── CÁ NỔI NHỎ ven bờ (bổ sung 2026-06-10) ──────────────────────────────
@@ -466,7 +466,7 @@ export const FISH_SEASONS: FishSeason[] = [
     species: "Mực nang",
     months: [11, 12, 1, 2, 3],
     regions: ["vinh-bac-bo", "trung-bo", "dong-nam-bo", "tay-nam-bo"],
-    note: "Loài sống đáy; VBB mùa 11–3, đỉnh tháng 1–2 (đẻ 1–3 vào bờ, RIMF); vùng khác chưa có nguồn.",
+    note: "Loài sống đáy; Vịnh Bắc Bộ mùa 11–3, đỉnh tháng 1–2 (đẻ 1–3 vào bờ).", // tham khảo: RIMF; vùng khác chưa có tài liệu
   },
   {
     species: "Bạch tuộc",
@@ -486,7 +486,7 @@ export const FISH_SEASONS: FishSeason[] = [
     species: "Cá đổng (cá lượng)",
     months: [1, 2, 3, 10, 11, 12],
     regions: ["vinh-bac-bo", "trung-bo", "nam-trung-bo", "dong-nam-bo", "tay-nam-bo"],
-    note: "Chủ lực lưới kéo đáy toàn quốc; đáy bùn cát 10–200 m, CPUE cao nhất <50 m, mùa đông ra 50–100 m.",
+    note: "Chủ lực lưới kéo đáy toàn quốc; đáy bùn cát 10–200 m, nhiều nhất dưới 50 m, mùa đông ra 50–100 m.", // CPUE cao nhất <50 m
   },
   {
     species: "Cá phèn",
@@ -504,7 +504,7 @@ export const FISH_SEASONS: FishSeason[] = [
     species: "Cá đù (cá sủ)",
     months: [6, 7, 8, 9, 10],
     regions: ["dong-nam-bo", "tay-nam-bo"],
-    note: "Mùa mưa mật độ cao ở cửa sông Cà Mau (ĐH Cần Thơ, 2026-10-03).",
+    note: "Mùa mưa mật độ cao ở cửa sông Cà Mau.", // tham khảo: ĐH Cần Thơ, 2026-10-03
   },
   {
     // SỬA 2026-10-03: vụ chính Thái Bình–Quảng Bình là tháng 9–12 ÂM (báo, 2 bài
@@ -559,7 +559,7 @@ export const FISH_SEASONS: FishSeason[] = [
     species: "Tôm bạc (tôm he)",
     months: [11, 12, 1, 2, 3, 4],
     regions: ["tay-nam-bo", "dong-nam-bo", "nam-trung-bo"],
-    note: "Tôm bạc thẻ (F. merguiensis, gộp tôm he ven bờ); vụ gió Đông Bắc — chưa có nguồn theo tháng (2026-10-03).",
+    note: "Tôm bạc thẻ (gộp tôm he ven bờ); vụ gió Đông Bắc.", // F. merguiensis; chưa có tài liệu theo tháng (2026-10-03)
   },
   {
     // THÊM 2026-10-03: VBB trữ lượng tôm mùa Tây Nam 5.116 t gấp đôi Đông Bắc

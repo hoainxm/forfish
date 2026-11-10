@@ -142,7 +142,7 @@ export class WeatherRateLimitError extends Error {
       bắt bà con bấm lại cả chục lần vô ích. */
   readonly daily: boolean;
   constructor(daily = false) {
-    super("Máy chủ dự báo đang quá tải (HTTP 429)");
+    super("Máy chủ dự báo đang bận");
     this.name = "WeatherRateLimitError";
     this.daily = daily;
   }

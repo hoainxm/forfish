@@ -29,7 +29,7 @@ export function moonPhase(date: Date): MoonInfo {
   if (frac < 0.4375)
     return { frac, label: "Trăng gần rằm", note: "Sáng trăng gần cả đêm — đèn kém nổi dần." };
   if (frac < 0.5625)
-    return { frac, label: "Trăng rằm — sáng trời", note: "Sáng trăng suốt đêm — đèn kém nổi. Sổ tàu năm qua chưa thấy mực, cá cơm ít đi." };
+    return { frac, label: "Trăng rằm — sáng trời", note: "Sáng trăng suốt đêm — đèn kém nổi." };
   if (frac < 0.6875)
     return { frac, label: "Trăng khuyết sau rằm", note: "Đầu đêm tối dần — đèn nổi lại." };
   if (frac < 0.8125)

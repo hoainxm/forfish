@@ -10180,8 +10180,8 @@ export default function FishingMapView() {
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[0.9375rem] font-semibold leading-snug text-danger">
                     {gridThieuDongChay
-                      ? "Nguồn chưa trả số dòng chảy, máy cũng chưa có bản nào lưu. Gió sóng vẫn xem được."
-                      : "Chưa lấy được dự báo cả vùng biển — máy chưa có bản nào và nguồn đang không cho tải."}
+                      ? "Chưa có số dòng chảy. Gió sóng vẫn xem được."
+                      : "Máy chưa lưu dự báo sóng gió vùng này."}
                   </p>
                   <button
                     type="button"
@@ -10504,8 +10504,7 @@ export default function FishingMapView() {
                               : selMeta?.category === "crustacean"
                                 ? "Tôm/ghẹ/cua sống đáy"
                                 : "Cá đáy"}{" "}
-                            — đoán theo <b>mùa vụ + độ sâu</b> ({selMeta?.depthBand}),
-                            ảnh vệ tinh mặt biển ít chính xác cho loài này.
+                            ({selMeta?.depthBand}) — dự báo loài này kém chắc, chỉ tham khảo.
                           </p>
                         ) : (
                           <p className="mt-0.5 text-[0.8125rem] leading-snug text-foreground/70">
@@ -10553,8 +10552,7 @@ export default function FishingMapView() {
                 <div className="flex items-start gap-2.5 surface p-3.5">
                   <FishIcon className="mt-0.5 h-5 w-5 shrink-0 text-t3" />
                   <p className="text-[0.9375rem] leading-snug text-foreground/80">
-                    Chỗ này <b>không có gì nổi bật</b>{" "}
-                    {fishCast.baseMode ? "trong bãi mùa này" : "trên ảnh vệ tinh mới nhất"} — dò
+                    Chỗ này <b>không có gì nổi bật</b> — dò
                     các vùng xanh lá trên bản đồ. Mùa này vùng{" "}
                     <b>{fishRegion?.name}</b> thường có:{" "}
                     {fishHere.join(", ")}{" "}

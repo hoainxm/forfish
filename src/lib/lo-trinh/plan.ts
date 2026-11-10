@@ -548,9 +548,9 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
   };
   // đang ngoài biển ⇒ không qua cửa lúc đi
   const tRa = dau ? 0 : quaCuaT(0);
-  if (!chang.doDuoc) ghiChu.push(`Chưa có số đo tàu cùng nghề trong máy — tạm tính dè dặt ${chang.vKn} hải lý/giờ.`);
+  if (!chang.doDuoc) ghiChu.push(`Chưa có số giờ chạy trong máy — tạm tính dè dặt ${chang.vKn} hải lý/giờ.`);
   else if (tocKhai != null && tocKhai > chang.vKn + 0.05)
-    ghiChu.push(`Giờ chạy tính theo tốc độ thật của tàu cùng nghề (${String(Math.round(chang.vKn * 10) / 10).replace(".", ",")} hải lý/giờ), chậm hơn số khai.`);
+    ghiChu.push(`Giờ chạy tính theo tốc độ thường gặp của nghề (${String(Math.round(chang.vKn * 10) / 10).replace(".", ",")} hải lý/giờ), chậm hơn số khai.`);
   // DẦU = SỐ TRUNG BÌNH theo nghề (anh Long 09/11 "bỏ cái lít dầu đi, lấy trung bình được rồi"): không đọc lít/giờ hay lít
   // đèn bà con khai nữa, không ghi chú "tạm tính". Chưa nạp tham số ⇒ DAU_GIO_MAC_DINH_L, không cộng dầu đèn.
   const dauTb = dauTrungBinh(nghe);
@@ -684,17 +684,13 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
     }
     x.prize *= D > 0 ? tong / D : 1;
   }
-  const ram = hieuUngRam(nghe);
+  /*  Chữ bà con thấy (anh Long 10/11: bỏ giải thích dài, không lộ cách tính/nguồn): chỉ kể ĐÃ TÍNH những gì,
+      không in hệ số, phần trăm, "sổ tàu" hay ngưỡng sóng. Cách chấm thật: đầu hàm + he-so.ts. */
+  const coTrang = hieuUngRam(nghe) !== 0 || daDoTrang(nghe);
   ghiChu.push(
-    `Cách chấm mỗi ngày đánh: các bãi được dự báo có cá của nghề ${TEN_NGHE[nghe]} × trăng ` +
-      (ram !== 0
-        ? `(sổ tàu năm qua: đêm rằm ${Math.round(Math.abs(ram) * 1000) / 10}% ${ram < 0 ? "ít" : "nhiều"} hơn đêm tối)`
-        : daDoTrang(nghe)
-          ? "(sổ tàu năm qua: đêm rằm và đêm tối đánh như nhau)"
-          : "(chưa có số trăng trong máy — chưa tính)") +
-      ` × sóng gió${khungBien ? " lúc đánh (đúng khung giờ của nghề)" : ""} (biển êm giữ nguyên, động nhẹ trừ tới 40%, động mạnh bỏ ngày đó)` +
-      (coDay ? ` × đáy (trừ rạn, chỗ cạn mà nghề ${TEN_NGHE[nghe]} khó đánh).` : "."),
+    `Đã tính theo các bãi được dự báo có cá của nghề ${TEN_NGHE[nghe]}, ${coTrang ? "trăng, " : ""}sóng gió${coDay ? ", đáy biển" : ""}.`,
   );
+  if (!coTrang) ghiChu.push("Chưa có số trăng trong máy — chưa tính trăng.");
   if (!coDay) ghiChu.push("Chưa có số đáy biển trong máy — chưa tránh rạn, chỗ cạn theo nghề.");
   /*  CHỮ CHO BÀ CON (anh Long 10/11: "đừng đề cập gì liên quan bãi đánh tàu cùng nghề, chỉ kêu là các bãi được dự báo có
       cá thôi"): lớp bãi vẫn nhân vào điểm như cũ, nhưng ghi chú KHÔNG nói "tàu cùng nghề" / thiếu bãi — gộp chung vào "các
@@ -1034,7 +1030,7 @@ export function deXuatLoTrinh(input: LoTrinhInput, now: Date = new Date()): LoTr
       const phan: string[] = [];
       if (cua.luong && cua.canM != null) phan.push(`luồng ${cua.luong.ten} sâu ${so(cua.luong.sauM)} m, tàu cần ${so(cua.canM)} m nước`);
       if (cua.cuaDo?.phuThuoc)
-        phan.push(`tàu ở đây thường chỉ qua cửa khi nước trên ${so(cua.cuaDo.nguongM)} m (đo ${cua.cuaDo.soLuot} lượt ra vào thật, trạm ${cua.cuaDo.tram})`);
+        phan.push(`tàu ở đây thường chỉ qua cửa khi nước trên ${so(cua.cuaDo.nguongM)} m`);
       ghiChu.push(`Giờ ra/vào cửa theo con nước (${tram}): ${phan.join("; ")}.`);
       if (cuaKhongDuNuoc) ghiChu.push("Có lúc cửa không đủ nước cả 36 giờ — app đã cộng thêm 36 giờ chờ; kiểm lại mớn tàu và độ sâu luồng.");
     } else {

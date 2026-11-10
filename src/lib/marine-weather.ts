@@ -145,13 +145,13 @@ export function forecastConfidence(
   if (dataConf != null && Number.isFinite(dataConf)) {
     if (dataConf < 0.4) {
       return {
-        label: "Các mô hình đang lệch nhau — kém chắc, xem lại sát ngày",
+        label: "Kém chắc — xem lại sát ngày",
         tone: "warn",
       };
     }
     if (dataConf >= 0.8 && base.tone === "warn" && daysAhead <= 6) {
       // các mô hình đồng thuận cao ở tầm vừa → bớt gắt hơn nhãn nền
-      return { label: "Dự báo tham khảo — mô hình khá đồng thuận", tone: "ok" };
+      return { label: "Dự báo tham khảo — khá chắc", tone: "ok" };
     }
   }
   return base;

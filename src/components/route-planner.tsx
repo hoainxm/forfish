@@ -219,12 +219,12 @@ function myPosition(): Promise<LatLon> {
     vùng biển thiếu dữ liệu, và KHÔNG bảo bà con "kiểm tra lại điểm" — điểm
     không sai gì. Việc đúng duy nhất là đợi rồi tính lại. */
 const QUA_TAI_MSG =
-  "Máy chủ dự báo thời tiết đang quá tải (quá nhiều lượt hỏi trong giờ này) nên chưa lấy được gió sóng mới cho tuyến.";
+  "Máy chủ dự báo đang bận, chưa lấy được gió sóng mới cho tuyến.";
 const THU_LAI_MSG = "Bà con đợi khoảng 1 tiếng rồi bấm Tính lại nhé.";
 /*  Hết suất CẢ NGÀY (Open-Meteo "Daily API request limit exceeded", đo thật
     2026-10-16) — mở lại 0h UTC = 7 giờ sáng VN. Bảo "đợi 1 tiếng" lúc này là
     bắt bà con bấm lại cả chục lần vô ích. */
-const THU_LAI_NGAY_MSG = "Máy chủ mở lại sau 7 giờ sáng mai, bà con tính lại lúc đó nhé.";
+const THU_LAI_NGAY_MSG = "Bà con tính lại sau 7 giờ sáng mai nhé.";
 
 /**
  * CHẾ ĐỘ DẪN ĐƯỜNG — MÀN RIÊNG, KHÔNG còn nằm trong sheet gió sóng
@@ -2555,7 +2555,7 @@ export function RouteMode({
               items.push(
                 `${
                   offlineRateLimited
-                    ? "Máy chủ dự báo đang quá tải"
+                    ? "Máy chủ dự báo đang bận"
                     : "Không lấy được dự báo sóng gió"
                 } và máy chưa lưu sẵn lưới gió sóng — tuyến này chỉ tính theo hải đồ.${
                   offlineRateLimited
@@ -2567,7 +2567,7 @@ export function RouteMode({
               items.push(
                 `${
                   offlineRateLimited
-                    ? "Máy chủ dự báo đang quá tải"
+                    ? "Máy chủ dự báo đang bận"
                     : isOffline()
                       ? "Đang mất sóng"
                       : "Mạng yếu, chưa hỏi được máy chủ"
@@ -2577,7 +2577,7 @@ export function RouteMode({
               );
             if (plan.beyondForecastH > 0)
               items.push(
-                `Hành trình dự kiến dài hơn dữ liệu dự báo: khoảng ${formatHoursVN(plan.beyondForecastH)} cuối sẽ được ước tính dựa trên dữ liệu của giờ cuối cùng — đoạn này thông tin có thể không còn chính xác tuyệt đối.`,
+                `Dự báo không đủ dài: khoảng ${formatHoursVN(plan.beyondForecastH)} cuối tạm tính theo giờ cuối, có thể lệch.`,
               );
             if (!plan.depthChecked)
               items.push(

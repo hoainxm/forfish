@@ -289,11 +289,8 @@ export function SeaForecast() {
 
       <p className="mt-4 rounded-xl bg-t1-bg px-3 py-2.5 text-[0.875rem] font-semibold leading-snug text-t1">
         {/* đừng hứa "16 ngày" với người đang bị khoá còn 3 ngày */}
-        {access === "open" ? "Dự báo 16 ngày" : "Dự báo"} từ mô hình thời tiết
-        quốc tế, chỉ để tham khảo — chấm màu là độ tin (xanh: khá chắc · cam:
-        vừa · đỏ: kém chắc, xem lại sát ngày). Ngày càng xa càng kém chắc. Trước
-        khi ra khơi, bà con nghe thêm thông báo của đài duyên hải và Bộ đội Biên
-        phòng.
+        {access === "open" ? "Dự báo 16 ngày" : "Dự báo"} tham khảo — chấm xanh khá chắc,
+        cam vừa, đỏ kém chắc. Ra khơi nghe thêm đài duyên hải, Biên phòng.
       </p>
     </div>
   );

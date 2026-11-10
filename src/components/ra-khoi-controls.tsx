@@ -1344,7 +1344,7 @@ function NguTruongPanel({
       <div className="mt-2">
         <Toggle
           label="Tàu xung quanh"
-          sub="Đang phát AIS · ~10 phút một bản"
+          sub="Tàu đang phát AIS"
           on={aisOn}
           onToggle={() => onAis(!aisOn)}
           icon={
@@ -1374,7 +1374,7 @@ function NguTruongPanel({
       <div className="mt-2">
         <Toggle
           label="Mật độ tàu dự kiến"
-          sub="16 ngày tới · trăng, gió, bão, mùa"
+          sub="16 ngày tới · tham khảo"
           on={fleetOn}
           onToggle={() => onFleet(!fleetOn)}
           icon={
@@ -1444,7 +1444,6 @@ function BaiTauDuBao({
   storm,
   stormCells,
   thinBase,
-  baseDays,
   onRetry,
 }: {
   day: number;
@@ -1472,11 +1471,11 @@ function BaiTauDuBao({
     : empty
       ? "Ngày này chưa ước được ô nào."
       : windMissing
-        ? "Chưa có gió ngày này — ước theo trăng, mùa."
+        ? "Chưa có gió ngày này — kém chắc hơn."
         : windPartial
-          ? "Gió chỉ có gần bờ — khơi xa ước theo trăng, mùa."
-          : "Đông hay thưa là so quanh vùng · ước theo trăng, gió, bão, mùa — tham khảo.";
-  const thinLine = thinBase ? ` Nền tháng này mới ${baseDays} ngày số liệu — độ tin cậy thấp.` : "";
+          ? "Gió chỉ có gần bờ — khơi xa kém chắc hơn."
+          : "Đông hay thưa là so quanh vùng — tham khảo.";
+  const thinLine = thinBase ? " Tháng này độ tin cậy thấp." : "";
   if (state === "loading" || state === "idle") {
     return <p className="mt-2 px-1 text-[0.8125rem] text-foreground/75">Đang tải mật độ tàu…</p>;
   }

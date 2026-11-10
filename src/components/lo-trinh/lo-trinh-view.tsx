@@ -496,7 +496,7 @@ function LoTrinhMo() {
     const so = soBamTuyen(nhatKy, ketQua.rec.input.nghe);
     if (so.duSo && so.bam.kgTB != null && so.lech.kgTB != null)
       phan.push(
-        `Các chuyến cùng nghề trong máy: đi sát tuyến trung bình ${so.bam.kgTB.toLocaleString("vi-VN")} kg (${so.bam.n} chuyến), đi khác tuyến ${so.lech.kgTB.toLocaleString("vi-VN")} kg (${so.lech.n} chuyến).`,
+        `Các chuyến bà con đã ghi: đi sát tuyến trung bình ${so.bam.kgTB.toLocaleString("vi-VN")} kg (${so.bam.n} chuyến), đi khác tuyến ${so.lech.kgTB.toLocaleString("vi-VN")} kg (${so.lech.n} chuyến).`,
       );
     return phan.length ? phan.join(" ") : null;
   })();
