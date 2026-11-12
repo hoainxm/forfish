@@ -15,7 +15,7 @@ import { tokenHeader } from "@/lib/device-token-store";
 import { NHAN } from "@/lib/labels";
 import { canResetPassword } from "@/lib/staff-permissions";
 import { DEFAULT_CUSTOMER_PASSWORD } from "@/lib/temp-password";
-import { PREMIUM_TERM_MAX_MONTHS, PREMIUM_TERM_MIN_MONTHS, PREMIUM_TERM_MONTHS, PREMIUM_TERM_PRESETS, TRIAL_DAYS_PRESETS, clampTermMonths, nextPremiumUntil, premiumTermLabel, resolveTier, trialUntil } from "@/lib/tier";
+import { PREMIUM_TERM_MAX_MONTHS, PREMIUM_TERM_MIN_MONTHS, PREMIUM_TERM_MONTHS, PREMIUM_TERM_PRESETS, TRIAL_DAYS_MAX, TRIAL_DAYS_MIN, TRIAL_DAYS_PRESETS, clampTermMonths, nextPremiumUntil, parseTrialDays, premiumTermLabel, resolveTier, trialUntil } from "@/lib/tier";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type Me, fmtD, fmtDT, fold, permsFor } from "@/components/admin/quan-tri-chung";
 import { useEscape } from "@/lib/use-escape";
@@ -1026,8 +1026,11 @@ export function AccountsTab({ me }: { me: Me }) {
           // xem trước hạn mới theo ĐÚNG luật server + kỳ hạn admin đang chọn
           const term = premiumTermLabel(toGrant.months);
           const trial = toGrant.trialDays;
+          const trialOk = trial == null || parseTrialDays(trial) != null;
           const until =
-            trial != null
+            trial != null && !trialOk
+              ? null
+              : trial != null
               ? trialUntil(toGrant.nowMs, trial)
               : nextPremiumUntil(
                   toGrant.active ? toGrant.a.premiumUntil : null,
@@ -1044,7 +1047,9 @@ export function AccountsTab({ me }: { me: Me }) {
                     : `Xác nhận kích hoạt gói Premium cho ${toGrant.a.phone}?`
               }
               message={
-                trial != null
+                trial != null && !trialOk
+                  ? "Nhập số ngày dùng thử từ 1 đến 14."
+                  : trial != null
                   ? `${toGrant.a.name ?? "Khách hàng"} được dùng thử Premium tới hết ngày ${fmtD(until)}. Mỗi khách chỉ được dùng thử một lần; lượt này không tính là lượt bán. Nên cấp khi khách sắp ra khơi và đang có sóng.`
                   : `${toGrant.a.name ?? "Khách hàng"} sẽ được cấp gói Premium ${term}, sử dụng đến ngày ${fmtD(until)}. Lịch sử cấp quyền này sẽ ghi nhận dưới tên bạn.`
               }
@@ -1058,6 +1063,11 @@ export function AccountsTab({ me }: { me: Me }) {
                 const a = toGrant.a;
                 const months = toGrant.months;
                 setToGrant(null);
+                // số ngày gõ sai thì KHÔNG cấp gì (máy chủ cũng chặn 400) — báo lại
+                if (!trialOk) {
+                  setError(trialErrorMessage("invalid_days"));
+                  return;
+                }
                 if (trial != null) patchAction(a, "trial", undefined, trial);
                 else patchAction(a, "grant", months);
               }}
@@ -1574,6 +1584,17 @@ export function PremiumTermPicker({
     if (isPreset) setCustomText("");
   }, [isPreset]);
 
+  // Ô "Thử … ngày" tuỳ chọn (1–14). Số gõ ra sao gửi lên y vậy (không ép về khoảng —
+  // ba-spec 20 R2); ngoài khoảng thì báo ngay dưới ô và hộp xác nhận không cấp.
+  const trialIsPreset = trialDays != null && TRIAL_DAYS_PRESETS.includes(trialDays);
+  const [trialText, setTrialText] = useState(
+    trialDays != null && !trialIsPreset ? String(trialDays) : "",
+  );
+  useEffect(() => {
+    if (trialDays == null || trialIsPreset) setTrialText("");
+  }, [trialDays, trialIsPreset]);
+  const trialBad = onTrial && parseTrialDays(trialDays) == null;
+
   return (
     <div className="mt-3 text-left">
       <p className="text-[0.875rem] font-bold text-foreground/70">Kỳ hạn</p>
@@ -1594,6 +1615,32 @@ export function PremiumTermPicker({
               Thử {d} ngày
             </button>
           ))}
+        {onTrialChange && (
+          <label
+            className={`flex min-h-[2.5rem] items-center gap-1.5 rounded-lg px-3 text-[0.875rem] font-bold ${
+              onTrial && !trialIsPreset ? "bg-navy text-white" : "bg-card text-foreground/70"
+            }`}
+          >
+            Thử
+            <input
+              type="number"
+              inputMode="numeric"
+              min={TRIAL_DAYS_MIN}
+              max={TRIAL_DAYS_MAX}
+              step={1}
+              value={trialText}
+              placeholder="số"
+              aria-label={`Số ngày dùng thử tuỳ chọn, từ ${TRIAL_DAYS_MIN} đến ${TRIAL_DAYS_MAX}`}
+              onChange={(e) => {
+                const v = e.target.value;
+                setTrialText(v);
+                if (v.trim() !== "") onTrialChange(Number(v));
+              }}
+              className="w-14 rounded bg-card px-2 py-1 text-center text-foreground"
+            />
+            ngày
+          </label>
+        )}
         {PREMIUM_TERM_PRESETS.map((p) => (
           <button
             key={p.months}
@@ -1631,6 +1678,11 @@ export function PremiumTermPicker({
           />
         </label>
       </div>
+      {trialBad && (
+        <p role="alert" className="mt-2 text-[0.8125rem] font-semibold text-danger">
+          Dùng thử chỉ nhận số ngày nguyên từ {TRIAL_DAYS_MIN} đến {TRIAL_DAYS_MAX}.
+        </p>
+      )}
     </div>
   );
 }
@@ -1654,6 +1706,10 @@ export function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (activatePremium && trialDays != null && parseTrialDays(trialDays) == null) {
+      setMsg(trialErrorMessage("invalid_days"));
+      return;
+    }
     setBusy(true);
     setMsg(null);
     const r = await fetch(apiUrl("/api/admin/accounts"), {
