@@ -45,6 +45,7 @@ const CHI_HIEN_THI: Record<string, string> = {
   "src/lib/soundings.ts": "tên cơ quan nguồn số đo sâu",
   "src/lib/source-registry.ts": "ghi chú độ tươi nguồn dữ liệu trên màn",
   "src/lib/tau-ais.ts": "dòng báo thẻ tàu AIS",
+  "src/lib/tier.ts": "dòng hạng trong sheet Tài khoản (`tierBadge`, cả câu dùng thử — ba-spec 20) chỉ hiện chữ; Sen Biển chỉ import hàm đọc dấu hạng",
   "src/lib/tides.ts": "ghi chú độ tin trạm con nước trên thẻ (câu con nước Sen Biển đọc ở hoi-ban-do / answer)",
   "src/lib/vms-zones.ts": "lỗi nhập vùng VMS ở trang quản trị",
 };

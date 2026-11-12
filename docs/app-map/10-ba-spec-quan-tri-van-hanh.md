@@ -103,7 +103,7 @@ Hai web, hai mục đích KHÁC nhau — KHÔNG trộn:
 ## 3. User × Nghiệp vụ (mỗi nghiệp vụ 1 OWNER)
 | # | Nghiệp vụ | Owner | Cross | Phụ thuộc | Ưu tiên |
 |---|---|---|---|---|---|
-| NV1 | Kích hoạt / gia hạn premium cho khách | đại lý | — | — | Must (đã có) |
+| NV1 | Kích hoạt / gia hạn premium cho khách (gói tính THÁNG; dùng thử tính NGÀY → [20-ba-spec](20-ba-spec-premium-dung-thu.md), CHƯA BUILD) | đại lý | — | — | Must (đã có) |
 | NV2 | Đánh dấu trạng thái chăm khách: "đã dùng premium?" + "đã liên hệ?" (chip trên acc) | đại lý | — | NV1 | Must |
 | NV3 | Ghi nhận thu tiền: nhập MÃ CK + đánh dấu "đã thu?" trên acc | đại lý | SDWork (đối chiếu) | NV1 | Must |
 | NV4 | Trace tiền → đồng bộ khoản thu sang SDWork | hệ thống | SDWork (nhận) | NV3 | Must |

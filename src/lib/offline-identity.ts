@@ -32,6 +32,7 @@
 import { isValidVnPhone, normalizeVnPhone } from "@/lib/phone";
 import {
   TIER_CACHE_KEY,
+  TIER_KIND_KEY,
   TIER_UNTIL_KEY,
   forgetTierMarkCache,
 } from "@/lib/tier";
@@ -203,6 +204,7 @@ export function clearTierMark(): void {
   try {
     window.localStorage.removeItem(TIER_CACHE_KEY);
     window.localStorage.removeItem(TIER_UNTIL_KEY);
+    window.localStorage.removeItem(TIER_KIND_KEY);
   } catch {
     /* bỏ qua */
   }

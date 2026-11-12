@@ -15,7 +15,7 @@ import { tokenHeader } from "@/lib/device-token-store";
 import { NHAN } from "@/lib/labels";
 import { canResetPassword } from "@/lib/staff-permissions";
 import { DEFAULT_CUSTOMER_PASSWORD } from "@/lib/temp-password";
-import { PREMIUM_TERM_MAX_MONTHS, PREMIUM_TERM_MIN_MONTHS, PREMIUM_TERM_MONTHS, PREMIUM_TERM_PRESETS, clampTermMonths, nextPremiumUntil, premiumTermLabel, resolveTier } from "@/lib/tier";
+import { PREMIUM_TERM_MAX_MONTHS, PREMIUM_TERM_MIN_MONTHS, PREMIUM_TERM_MONTHS, PREMIUM_TERM_PRESETS, TRIAL_DAYS_PRESETS, clampTermMonths, nextPremiumUntil, premiumTermLabel, resolveTier, trialUntil } from "@/lib/tier";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type Me, fmtD, fmtDT, fold, permsFor } from "@/components/admin/quan-tri-chung";
 import { useEscape } from "@/lib/use-escape";
@@ -26,6 +26,8 @@ export type Account = {
   tier: string;
   premiumUntil: string | null;
   premiumActivatedAt: string | null;
+  /** loại premium theo lượt cấp gần nhất — `trial` = đang/đã dùng thử (ba-spec 20) */
+  premiumKind?: "trial" | "paid" | null;
   role: string;
   /** QUẢN TRỊ VIÊN thật — env ADMIN_PHONES (cứu hộ) HOẶC staff_accounts
    *  role='admin' (0056). Xem badge ở danh sách tài khoản. */
@@ -127,6 +129,8 @@ export function AccountsTab({ me }: { me: Me }) {
     active: boolean;
     /** kỳ hạn (số tháng) admin đang chọn cho lần cấp/gia hạn này */
     months: number;
+    /** đang chọn DÙNG THỬ N ngày thay cho gói tháng (ba-spec 20); null = gói tháng */
+    trialDays: number | null;
     /** mốc lúc mở dialog — ghim để xem trước hạn không gọi Date.now() khi render
         (render phải thuần); server vẫn tự tính lại theo giờ thật lúc cấp */
     nowMs: number;
@@ -256,8 +260,9 @@ export function AccountsTab({ me }: { me: Me }) {
    *  grant — server bỏ qua khi downgrade. */
   async function patchAction(
     a: Account,
-    action: "grant" | "downgrade",
+    action: "grant" | "downgrade" | "trial",
     termMonths?: number,
+    trialDays?: number,
   ) {
     setBusyPhone(a.phone);
     setNotice(null);
@@ -268,6 +273,7 @@ export function AccountsTab({ me }: { me: Me }) {
         phone: a.phone,
         action,
         ...(action === "grant" && termMonths != null ? { termMonths } : {}),
+        ...(action === "trial" ? { trialDays } : {}),
       }),
     }).catch(() => null);
     const j = (await r?.json().catch(() => null)) as {
@@ -279,7 +285,8 @@ export function AccountsTab({ me }: { me: Me }) {
     if (!r?.ok || !j?.ok) {
       setError(
         staffDenialMessage(j?.code) ??
-        (action === "grant"
+        trialErrorMessage(j?.code) ??
+        (action !== "downgrade"
           ? "Thao tác kích hoạt hoặc gia hạn bị lỗi. Vui lòng thử lại."
           : "Lỗi khi hạ cấp tài khoản. Vui lòng thử lại."),
       );
@@ -849,7 +856,7 @@ export function AccountsTab({ me }: { me: Me }) {
                   >
                     {effTier(a) === "premium"
                       ? a.premiumUntil
-                        ? `Gói Premium đến ${fmtD(a.premiumUntil)}`
+                        ? `${a.premiumKind === "trial" ? "Dùng thử" : "Gói Premium"} đến ${fmtD(a.premiumUntil)}`
                         : "Premium"
                       : a.tier === "premium"
                         ? `Đã hết hạn ${fmtD(a.premiumUntil)}`
@@ -867,6 +874,7 @@ export function AccountsTab({ me }: { me: Me }) {
                             a,
                             active,
                             months: PREMIUM_TERM_MONTHS,
+                            trialDays: null,
                             nowMs: Date.now(),
                           });
                         }}
@@ -1017,20 +1025,32 @@ export function AccountsTab({ me }: { me: Me }) {
         (() => {
           // xem trước hạn mới theo ĐÚNG luật server + kỳ hạn admin đang chọn
           const term = premiumTermLabel(toGrant.months);
-          const until = nextPremiumUntil(
-            toGrant.active ? toGrant.a.premiumUntil : null,
-            toGrant.nowMs,
-            toGrant.months,
-          );
+          const trial = toGrant.trialDays;
+          const until =
+            trial != null
+              ? trialUntil(toGrant.nowMs, trial)
+              : nextPremiumUntil(
+                  toGrant.active ? toGrant.a.premiumUntil : null,
+                  toGrant.nowMs,
+                  toGrant.months,
+                );
           return (
             <ConfirmDialog
               title={
-                toGrant.active
-                  ? `Xác nhận gia hạn gói Premium cho ${toGrant.a.phone}?`
-                  : `Xác nhận kích hoạt gói Premium cho ${toGrant.a.phone}?`
+                trial != null
+                  ? `Xác nhận cho ${toGrant.a.phone} dùng thử Premium ${trial} ngày?`
+                  : toGrant.active
+                    ? `Xác nhận gia hạn gói Premium cho ${toGrant.a.phone}?`
+                    : `Xác nhận kích hoạt gói Premium cho ${toGrant.a.phone}?`
               }
-              message={`${toGrant.a.name ?? "Khách hàng"} sẽ được cấp gói Premium ${term}, sử dụng đến ngày ${fmtD(until)}. Lịch sử cấp quyền này sẽ ghi nhận dưới tên bạn.`}
-              confirmLabel={toGrant.active ? "Xác nhận gia hạn" : "Xác nhận kích hoạt"}
+              message={
+                trial != null
+                  ? `${toGrant.a.name ?? "Khách hàng"} được dùng thử Premium tới hết ngày ${fmtD(until)}. Mỗi khách chỉ được dùng thử một lần; lượt này không tính là lượt bán. Nên cấp khi khách sắp ra khơi và đang có sóng.`
+                  : `${toGrant.a.name ?? "Khách hàng"} sẽ được cấp gói Premium ${term}, sử dụng đến ngày ${fmtD(until)}. Lịch sử cấp quyền này sẽ ghi nhận dưới tên bạn.`
+              }
+              confirmLabel={
+                trial != null ? "Xác nhận dùng thử" : toGrant.active ? "Xác nhận gia hạn" : "Xác nhận kích hoạt"
+              }
               cancelLabel="Huỷ thao tác"
               danger={false}
               onCancel={() => setToGrant(null)}
@@ -1038,12 +1058,18 @@ export function AccountsTab({ me }: { me: Me }) {
                 const a = toGrant.a;
                 const months = toGrant.months;
                 setToGrant(null);
-                patchAction(a, "grant", months);
+                if (trial != null) patchAction(a, "trial", undefined, trial);
+                else patchAction(a, "grant", months);
               }}
             >
               <PremiumTermPicker
                 months={toGrant.months}
-                onChange={(m) => setToGrant({ ...toGrant, months: m })}
+                onChange={(m) => setToGrant({ ...toGrant, months: m, trialDays: null })}
+                // dùng thử chỉ cho khách ĐANG KHÔNG premium (R3) — máy chủ vẫn chặn lại
+                trialDays={toGrant.active ? undefined : toGrant.trialDays}
+                onTrialChange={
+                  toGrant.active ? undefined : (d) => setToGrant({ ...toGrant, trialDays: d })
+                }
               />
             </ConfirmDialog>
           );
@@ -1184,6 +1210,26 @@ export function staffDenialMessage(code: string | undefined): string | null {
       return "Đây là quản trị viên cuối cùng — thêm quản trị viên khác trước.";
     case "owner_only":
       return "Chỉ admin tổng mới thao tác được với tài khoản quản trị viên.";
+    default:
+      return null;
+  }
+}
+
+/** Mã lỗi dùng thử (ba-spec 20) → câu cho nhân sự. Mã khác ⇒ null. */
+export function trialErrorMessage(code: string | undefined): string | null {
+  switch (code) {
+    case "invalid_days":
+      return "Số ngày dùng thử phải từ 1 đến 14.";
+    case "already_premium":
+      return "Khách đang có Premium — không cần dùng thử.";
+    case "trial_used":
+      return "Khách này đã dùng thử một lần rồi. Muốn mở tiếp thì cấp gói theo tháng.";
+    case "lookup_failed":
+    case "trial_unavailable":
+    case "unavailable":
+      return "Chưa kiểm tra được lịch sử cấp nên chưa mở dùng thử. Vui lòng thử lại sau.";
+    case "trial_and_paid":
+      return "Chọn một trong hai: dùng thử hoặc gói theo tháng.";
     default:
       return null;
   }
@@ -1509,10 +1555,17 @@ export function FlagToggle({
 export function PremiumTermPicker({
   months,
   onChange,
+  trialDays,
+  onTrialChange,
 }: {
   months: number;
   onChange: (m: number) => void;
+  /** đang chọn dùng thử N ngày (null = đang chọn gói tháng). Vắng `onTrialChange`
+   *  ⇒ không có lựa chọn dùng thử (khách đang premium). ba-spec 20. */
+  trialDays?: number | null;
+  onTrialChange?: (days: number) => void;
 }) {
+  const onTrial = onTrialChange != null && trialDays != null;
   const isPreset = PREMIUM_TERM_PRESETS.some((p) => p.months === months);
   const [customText, setCustomText] = useState(isPreset ? "" : String(months));
 
@@ -1525,13 +1578,30 @@ export function PremiumTermPicker({
     <div className="mt-3 text-left">
       <p className="text-[0.875rem] font-bold text-foreground/70">Kỳ hạn</p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
+        {onTrialChange &&
+          TRIAL_DAYS_PRESETS.map((d) => (
+            <button
+              key={`thu-${d}`}
+              type="button"
+              aria-pressed={onTrial && trialDays === d}
+              onClick={() => onTrialChange(d)}
+              className={`min-h-[2.5rem] rounded-lg px-3 text-[0.875rem] font-bold ${
+                onTrial && trialDays === d
+                  ? "bg-navy text-white"
+                  : "bg-card text-foreground/70"
+              }`}
+            >
+              Thử {d} ngày
+            </button>
+          ))}
         {PREMIUM_TERM_PRESETS.map((p) => (
           <button
             key={p.months}
             type="button"
+            aria-pressed={!onTrial && months === p.months}
             onClick={() => onChange(p.months)}
             className={`min-h-[2.5rem] rounded-lg px-3 text-[0.875rem] font-bold ${
-              months === p.months
+              !onTrial && months === p.months
                 ? "bg-navy text-white"
                 : "bg-card text-foreground/70"
             }`}
@@ -1541,7 +1611,7 @@ export function PremiumTermPicker({
         ))}
         <label
           className={`flex min-h-[2.5rem] items-center gap-1.5 rounded-lg px-3 text-[0.875rem] font-bold ${
-            !isPreset ? "bg-navy text-white" : "bg-card text-foreground/70"
+            !onTrial && !isPreset ? "bg-navy text-white" : "bg-card text-foreground/70"
           }`}
         >
           Khác
@@ -1577,6 +1647,8 @@ export function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
   const [activatePremium, setActivatePremium] = useState(false);
   // kỳ hạn premium khi tạo kèm — chỉ gửi khi có tick activatePremium
   const [premiumMonths, setPremiumMonths] = useState(PREMIUM_TERM_MONTHS);
+  // tạo kèm DÙNG THỬ N ngày thay cho gói tháng (ba-spec 20 NV2); null = gói tháng
+  const [trialDays, setTrialDays] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -1593,8 +1665,9 @@ export function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
         name,
         password,
         role: "customer",
-        activatePremium,
-        ...(activatePremium ? { termMonths: premiumMonths } : {}),
+        activatePremium: activatePremium && trialDays == null,
+        ...(activatePremium && trialDays == null ? { termMonths: premiumMonths } : {}),
+        ...(activatePremium && trialDays != null ? { trialDays } : {}),
       }),
     }).catch(() => null);
     setBusy(false);
@@ -1605,29 +1678,37 @@ export function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
       existed?: boolean;
       role?: string;
       keptRole?: boolean;
+      trial?: { applied: boolean; code?: string } | null;
     } | null;
     if (!r?.ok || !j?.ok) {
       setMsg(
-        j?.code === "bad_phone"
+        trialErrorMessage(j?.code) ??
+        (j?.code === "bad_phone"
           ? "Số điện thoại không đúng định dạng."
           : j?.code === "bad_password"
             ? "Mật khẩu cần có ít nhất 6 ký tự."
-            : "Tạo tài khoản không thành công. Vui lòng thử lại.",
+            : "Tạo tài khoản không thành công. Vui lòng thử lại."),
       );
       return;
     }
+    // tài khoản đã tạo/giữ nhưng phần dùng thử không áp ⇒ nói rõ vì sao (NV2)
+    const trialNote =
+      j.trial && !j.trial.applied
+        ? ` Chưa mở dùng thử: ${trialErrorMessage(j.trial.code) ?? "lỗi máy chủ, thử lại ở danh sách tài khoản."}`
+        : "";
     setMsg(
       j.existed
-        ? `Số ${phone} đã có tài khoản từ trước — mật khẩu cũ giữ nguyên${activatePremium ? ", đã kích hoạt Premium" : ""}.${j.keptRole ? ` Giữ nguyên vai ${j.role === "admin" ? "quản trị viên" : "quản lý"} (muốn hạ vai thì dùng tab Phân quyền).` : ""}`
+        ? `Số ${phone} đã có tài khoản từ trước — mật khẩu cũ giữ nguyên${activatePremium && trialDays == null ? ", đã kích hoạt Premium" : j.trial?.applied ? `, đã mở dùng thử ${trialDays} ngày` : ""}.${j.keptRole ? ` Giữ nguyên vai ${j.role === "admin" ? "quản trị viên" : "quản lý"} (muốn hạ vai thì dùng tab Phân quyền).` : ""}${trialNote}`
         : j.provisioned
-        ? `Tạo thành công. Vui lòng báo khách đăng nhập bằng SĐT và mật khẩu ${password.trim()} (app sẽ nhắc đổi mật khẩu ở lần đầu tiên).`
-        : "Đã lưu thông tin nhưng lỗi quá trình tạo tài khoản đăng nhập. Vui lòng kiểm tra lại.",
+        ? `Tạo thành công${j.trial?.applied ? `, đã mở dùng thử ${trialDays} ngày` : ""}. Vui lòng báo khách đăng nhập bằng SĐT và mật khẩu ${password.trim()} (app sẽ nhắc đổi mật khẩu ở lần đầu tiên).${trialNote}`
+        : `Đã lưu thông tin nhưng lỗi quá trình tạo tài khoản đăng nhập. Vui lòng kiểm tra lại.${trialNote}`,
     );
     setPhone("");
     setName("");
     setPassword(DEFAULT_CUSTOMER_PASSWORD);
     setActivatePremium(false);
     setPremiumMonths(PREMIUM_TERM_MONTHS);
+    setTrialDays(null);
     onCreated();
   }
 
@@ -1681,13 +1762,20 @@ export function CreateAccountForm({ onCreated }: { onCreated: () => void }) {
                 onChange={(e) => setActivatePremium(e.target.checked)}
                 className="h-5 w-5 accent-[var(--ok)]"
               />
-              Kích hoạt premium {premiumTermLabel(premiumMonths)} ngay khi tạo
+              {trialDays != null
+                ? `Cho dùng thử premium ${trialDays} ngày ngay khi tạo`
+                : `Kích hoạt premium ${premiumTermLabel(premiumMonths)} ngay khi tạo`}
             </label>
             {activatePremium && (
               <div className="rounded-xl bg-field px-3.5 py-2.5">
                 <PremiumTermPicker
                   months={premiumMonths}
-                  onChange={setPremiumMonths}
+                  onChange={(m) => {
+                    setPremiumMonths(m);
+                    setTrialDays(null);
+                  }}
+                  trialDays={trialDays}
+                  onTrialChange={setTrialDays}
                 />
               </div>
             )}

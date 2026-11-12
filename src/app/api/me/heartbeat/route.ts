@@ -20,6 +20,7 @@ import { countsAsOfflineReady, normalizePlatform } from "@/lib/app-usage";
 import { isValidDeviceId } from "@/lib/device-id";
 import { normalizeDataUntil, normalizeStorageMb } from "@/lib/app-usage";
 import { needFromReason, serverNextInMs } from "@/lib/heartbeat-policy";
+import { premiumKindFromGrants } from "@/lib/tier";
 
 export async function POST(req: Request) {
   /*  DANH TÍNH THEO CHUỖI CỨNG (đổi 2026-08-02) — máy ngư dân không còn giữ
@@ -386,6 +387,23 @@ export async function POST(req: Request) {
       Đọc từ hàng vừa update nên KHÔNG tốn thêm truy vấn. `resolveTier` dùng
       chung với middleware và /quan-tri để ba chỗ không nói ba kiểu. */
   const row = hit[0] as { tier?: string | null; premium_until?: string | null };
+  /*  LOẠI PREMIUM (ba-spec 20 NV4): chỉ để máy NÓI "đang dùng thử" — không mở/khoá
+      gì. Chỉ tra khi cột `tier` là premium; tra hỏng ⇒ không gửi (máy coi là trả
+      tiền, R10) — một nhãn phụ không được làm hỏng nhịp ghi hạng. */
+  let premiumKind: "trial" | "paid" | null = null;
+  if (row?.tier === "premium") {
+    try {
+      const { data: grants, error: gErr } = await admin
+        .from("premium_grants")
+        .select("action, created_at")
+        .eq("customer_phone", phone)
+        .in("action", ["activate", "renew", "trial"]);
+      if (gErr) console.error("[heartbeat] tra loại premium HỎNG (nhãn phụ, bỏ qua):", gErr.code, gErr.message);
+      else if (grants) premiumKind = premiumKindFromGrants(grants) ?? "paid";
+    } catch (e) {
+      console.error("[heartbeat] tra loại premium ném (nhãn phụ, bỏ qua):", e);
+    }
+  }
   return NextResponse.json({
     ok: true,
     recorded: true,
@@ -401,5 +419,6 @@ export async function POST(req: Request) {
         gọi tổng đài cũng không ai giải thích được. */
     tier: row?.tier ?? null,
     premiumUntil: row?.premium_until ?? null,
+    premiumKind,
   });
 }

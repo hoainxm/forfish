@@ -368,6 +368,8 @@ export const NHAN_LOAI_TIN = {
  */
 export const TEN_GOI = "gói dự báo";
 export const TEN_GOI_HOA = "Gói dự báo";
+/** Nhãn hạng khi gói đang ở lượt DÙNG THỬ theo ngày (ba-spec 20 NV4). */
+export const NHAN_DUNG_THU = "Dùng thử";
 
 export type NhanId = keyof typeof NHAN;
 

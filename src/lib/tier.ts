@@ -12,7 +12,7 @@
 // gán: webhook SDWork hoặc web quản trị /quan-tri. App KHÔNG có luồng
 // thanh toán.
 
-import { TEN_GOI_HOA } from "./labels";
+import { NHAN_DUNG_THU, TEN_GOI_HOA } from "./labels";
 
 export type AccountTier = "basic" | "premium";
 
@@ -38,6 +38,10 @@ export const TIER_CACHE_KEY = "forfish.tier.premium.v1";
     vào tệp sao lưu (lib/offline-backup.ts SKIP_PREFIXES) — hạn là entitlement,
     không phải dữ liệu dự báo, chia tệp không được kéo theo. */
 export const TIER_UNTIL_KEY = "forfish.tier.until.v1";
+/*  LOẠI premium lần tra gần nhất (`trial` | `paid`, ba-spec 20 NV4) — CHỈ để nói
+    "đang dùng thử" cho đúng. KHÔNG dùng để mở/khoá gì: quyền vẫn do dấu + hạn ở
+    trên quyết. Cùng tiền tố `forfish.tier.` (không vào tệp sao lưu). */
+export const TIER_KIND_KEY = "forfish.tier.kind.v1";
 
 /** Dấu hạng vừa được máy chủ xác nhận lại — `use-tier` nghe để vẽ lại ngay */
 export const TIER_EVENT = "forfish:tier";
@@ -87,7 +91,7 @@ export const TIER_EVENT = "forfish:tier";
     NỢ CÒN LẠI (nói thẳng): tắt app rồi mở lại trên máy vẫn chật thì mất dấu,
     phải chờ nhịp/đăng nhập lại. Bịt hẳn cần dọn chỗ hoặc báo cho bà con biết
     máy đầy — việc khác, không nhét vào đây. */
-let markCache: { marked: boolean; until: string | null } | null = null;
+let markCache: { marked: boolean; until: string | null; kind: PremiumKind | null } | null = null;
 
 /** Dấu hạng thô: ƯU TIÊN bộ nhớ (ghi hụt vẫn đúng), rồi mới tới kho máy. */
 export function readTierMarkRaw(): string | null {
@@ -111,6 +115,17 @@ export function readTierUntilRaw(): string | null {
   }
 }
 
+/** Loại premium đã lưu — cùng luật ưu tiên; chỉ để NÓI, không để mở/khoá. */
+export function readTierKind(): PremiumKind | null {
+  if (markCache) return markCache.kind;
+  if (typeof window === "undefined") return null;
+  try {
+    return parsePremiumKind(window.localStorage.getItem(TIER_KIND_KEY));
+  } catch {
+    return null;
+  }
+}
+
 /** Quên dấu trong bộ nhớ — gọi kèm mọi đường xoá dấu ở kho (clearTierMark). */
 export function forgetTierMarkCache(): void {
   markCache = null;
@@ -120,21 +135,26 @@ export function writePremiumMark(
   /** ĐÚNG CỘT `tier` THÔ của DB — KHÔNG phải kết quả đã xét hạn (luật E4) */
   marked: boolean,
   until: string | null,
+  /** loại premium máy chủ báo (ba-spec 20 NV4); vắng/lạ ⇒ coi là trả tiền (R10) */
+  kindRaw?: unknown,
 ): void {
   if (typeof window === "undefined") return;
+  const kind = marked ? parsePremiumKind(kindRaw) : null;
   /*  BỘ NHỚ TRƯỚC, KHO SAU — thứ tự này là toàn bộ bản vá: kho ghi hụt thì
       phiên đang chạy vẫn có câu trả lời đúng. */
-  markCache = { marked, until };
+  markCache = { marked, until, kind };
   try {
     window.localStorage.setItem(TIER_CACHE_KEY, marked ? "1" : "0");
     if (until) window.localStorage.setItem(TIER_UNTIL_KEY, until);
     else window.localStorage.removeItem(TIER_UNTIL_KEY);
+    if (kind === "trial") window.localStorage.setItem(TIER_KIND_KEY, kind);
+    else window.localStorage.removeItem(TIER_KIND_KEY);
   } catch {
     /* hết chỗ / chế độ riêng tư — bộ nhớ đã giữ, phiên này không mất hạng */
   }
   try {
     window.dispatchEvent(
-      new CustomEvent(TIER_EVENT, { detail: { marked, until } }),
+      new CustomEvent(TIER_EVENT, { detail: { marked, until, kind } }),
     );
   } catch {
     /* CustomEvent không có (WebView rất cũ) — màn hình vẽ lại ở lần mở sau */
@@ -428,6 +448,87 @@ export function nextPremiumUntil(
   return new Date(addCalendarMonths(base, clampTermMonths(months))).toISOString();
 }
 
+/* ── DÙNG THỬ THEO NGÀY (ba-spec 20, 2026-11-12) ────────────────────────────
+   Kỳ hạn tính NGÀY chỉ dành cho dùng thử; gói trả tiền vẫn tính tháng (R1).
+   Mỗi khách một lần, chỉ khi đang không premium, không phải lượt bán (R3–R5). */
+
+/** Khoảng số ngày máy chủ nhận (R2). */
+export const TRIAL_DAYS_MIN = 1;
+export const TRIAL_DAYS_MAX = 14;
+/** Mức dựng sẵn cho nhân sự bấm; mặc định là mức đầu. */
+export const TRIAL_DAYS_PRESETS: readonly number[] = [3, 5];
+export const TRIAL_DAYS_DEFAULT = 3;
+
+/** Loại premium đang hiệu lực: dùng thử hay trả tiền. */
+export type PremiumKind = "trial" | "paid";
+
+/** Chuỗi lạ → null. THUẦN. */
+export function parsePremiumKind(raw: unknown): PremiumKind | null {
+  return raw === "trial" || raw === "paid" ? raw : null;
+}
+
+/**
+ * Số ngày dùng thử hợp lệ, hoặc null. KHÔNG ép về khoảng như `clampTermMonths`:
+ * đây là cho không — gõ nhầm 50 mà im lặng thành 14 là cấp sai (R2).
+ */
+export function parseTrialDays(v: unknown): number | null {
+  if (typeof v !== "number" || !Number.isInteger(v)) return null;
+  return v >= TRIAL_DAYS_MIN && v <= TRIAL_DAYS_MAX ? v : null;
+}
+
+const VN_OFFSET_MS = 7 * 3600 * 1000;
+
+/**
+ * Hạn dùng thử = 23:59:59 GIỜ VN của (ngày cấp theo giờ VN + `days`). Hết cuối
+ * ngày chứ không +N×24 giờ vì bà con chỉ thấy NGÀY (`formatPremiumUntil`) —
+ * "tới 15/11" phải dùng được trọn ngày 15/11. THUẦN.
+ */
+export function trialUntil(nowMs: number, days: number): string {
+  const vn = new Date(nowMs + VN_OFFSET_MS);
+  const end = Date.UTC(vn.getUTCFullYear(), vn.getUTCMonth(), vn.getUTCDate() + days, 23, 59, 59);
+  return new Date(end - VN_OFFSET_MS).toISOString();
+}
+
+/** Lý do KHÔNG cấp dùng thử, hoặc null = được (R3, R4). THUẦN. */
+export function trialDenial(a: {
+  /** hạng hiệu lực lúc này (`resolveTier`) */
+  effectiveTier: AccountTier;
+  /** khách đã từng có lượt `trial` trong nhật ký cấp */
+  hasTrial: boolean;
+}): "already_premium" | "trial_used" | null {
+  if (a.effectiveTier === "premium") return "already_premium";
+  if (a.hasTrial) return "trial_used";
+  return null;
+}
+
+/**
+ * Loại premium theo nhật ký cấp: lượt activate/renew/trial GẦN NHẤT quyết.
+ * Không có lượt nào ⇒ null (gán ngoài app — webhook SDWork, migration — coi là
+ * trả tiền ở chỗ dùng). THUẦN.
+ */
+export function premiumKindFromGrants(
+  grants: readonly { action: string | null; created_at: string | null }[],
+): PremiumKind | null {
+  let best: { t: number; action: string } | null = null;
+  for (const g of grants) {
+    if (g.action !== "activate" && g.action !== "renew" && g.action !== "trial") continue;
+    const t = g.created_at ? Date.parse(g.created_at) : NaN;
+    if (!Number.isFinite(t)) continue;
+    if (!best || t > best.t) best = { t, action: g.action };
+  }
+  if (!best) return null;
+  return best.action === "trial" ? "trial" : "paid";
+}
+
+/**
+ * Nhãn lượt cấp gói THÁNG: còn hạn trả tiền ⇒ `renew`; còn lại (chưa có, đã
+ * hết, hoặc ĐANG DÙNG THỬ) ⇒ `activate` — mua sau dùng thử là lượt mua ĐẦU (R6).
+ * Hạn vẫn cộng nối khi đang còn hạn (kể cả dùng thử) — khách không mất ngày.
+ */
+export function paidGrantAction(isActive: boolean, kind: PremiumKind | null): "activate" | "renew" {
+  return isActive && kind !== "trial" ? "renew" : "activate";
+}
+
 /**
  * Hạng HIỆU LỰC từ dữ liệu DB: tier='premium' và còn hạn (premium_until null =
  * không hạn). Mọi giá trị lạ/hết hạn/ngày hỏng → 'basic' (khoá nhầm còn hơn mở
@@ -490,6 +591,8 @@ export interface TierBadge {
 export function tierBadge(a: {
   access: FeatureAccess;
   premiumUntil: string | null | undefined;
+  /** loại premium đã biết (ba-spec 20 NV4); vắng ⇒ như trả tiền */
+  kind?: PremiumKind | null;
 }): TierBadge | null {
   if (a.access === "checking" || a.access === "login") return null;
   if (a.access === "upgrade") {
@@ -502,6 +605,15 @@ export function tierBadge(a: {
     };
   }
   const until = formatPremiumUntil(a.premiumUntil);
+  if (a.kind === "trial") {
+    return {
+      tone: "premium",
+      label: NHAN_DUNG_THU,
+      detail: until
+        ? `Đang dùng thử dự báo cá và thời tiết dài ngày, tới hết ngày ${until}. Thấy được thì gọi SDVICO để mua gói.`
+        : "Đang dùng thử dự báo cá và thời tiết dài ngày. Thấy được thì gọi SDVICO để mua gói.",
+    };
+  }
   return {
     tone: "premium",
     label: TEN_GOI_HOA,

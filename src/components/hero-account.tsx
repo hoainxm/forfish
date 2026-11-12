@@ -248,7 +248,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
   // HẠNG CỦA TÔI (2026-08-01): premium gán ngoài đời ở /quan-tri, trong app
   // trước nay không có chỗ nào xác nhận ⇒ khách trả tiền phải vào Ra khơi thử
   // bật lớp Cá mới biết. `null` = chưa chắc, không bày gì (luật ở lib/tier.ts).
-  const { access, premiumUntil, savedAccess } = useFeatureAccess();
+  const { access, premiumUntil, premiumKind, savedAccess } = useFeatureAccess();
   const [open, setOpen] = useState(false);
   /** chip mở menu — menu NEO vào nó (Popover) */
   const [chipEl, setChipEl] = useState<HTMLButtonElement | null>(null);
@@ -609,7 +609,7 @@ export function HeroAccount({ light = false }: { light?: boolean } = {}) {
   if (!ready) return <div className={`${light ? "" : "mt-3 "}h-[2.75rem]`} aria-hidden />;
 
   const name = (user?.user_metadata?.full_name as string | undefined)?.trim();
-  const badge = tierBadge({ access, premiumUntil });
+  const badge = tierBadge({ access, premiumUntil, kind: premiumKind });
 
   const chuCai = toi?.handle ?? name ?? "Bà con"; // không tên ⇒ "B" (Bà con), KHÔNG lấy số đầu SĐT ("0" vô nghĩa)
 

@@ -586,6 +586,8 @@ export async function sendHeartbeat(info: {
           tuyệt đối khi mất sóng**. Nhịp riêng vừa thừa vừa còn gọi lúc offline. */
       tier?: string;
       premiumUntil?: string | null;
+      /** `trial` | `paid` — chỉ để nói "đang dùng thử" (ba-spec 20 NV4) */
+      premiumKind?: unknown;
     } | null;
     /*  MÁY CHỦ NÓI MÁY PHẢI LÀM GÌ (2026-08-02d) — chỗ chặn VÒNG LẶP VÔ ÍCH.
         Chưa gán được mà cứ bám đuổi thì có ca gửi mãi mãi không bao giờ gán
@@ -625,7 +627,7 @@ export async function sendHeartbeat(info: {
           dấu cũng hết, mà đồng hồ máy lệch vài ngày thì không mất quyền.
           `until` chỉ giữ khi CÓ dấu premium, y như đường ghi cũ trong use-tier. */
       const marked = body.tier === "premium";
-      writePremiumMark(marked, marked ? (body.premiumUntil ?? null) : null);
+      writePremiumMark(marked, marked ? (body.premiumUntil ?? null) : null, body.premiumKind);
     }
     // GHI ĐƯỢC → đóng cửa 12 giờ, nhớ CHỮ KÝ vừa báo, bỏ mọi mức hoãn.
     // Chữ ký chỉ ghi ở đây (sau khi máy chủ xác nhận) — gửi mà không ghi được

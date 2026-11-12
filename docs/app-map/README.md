@@ -28,6 +28,7 @@
 | Chợ vật tư tàu cá (sàn đa người bán): mua, bán, đơn, shop, admin duyệt | Root + [11-ba-spec-san-thuong-mai.md](11-ba-spec-san-thuong-mai.md) (hành vi) + [12-kien-truc-san-thuong-mai.md](12-kien-truc-san-thuong-mai.md) (kỹ thuật) |
 | Tab Kairos: tin báo, đăng bài, bình luận, Hay, tên gọi, Bến, thu tin GPU, quản trị Kairos | Root + [14-ba-spec-kairos.md](14-ba-spec-kairos.md) |
 | Đồng bộ SDFish ⇄ SDWork (webhook, outbox, đơn/yêu cầu gửi CRM, gia hạn, premium, trace tiền) hoặc thêm DẠNG ĐỒNG BỘ MỚI | Root + [19-ba-spec-dong-bo-sdwork.md](19-ba-spec-dong-bo-sdwork.md) (+ `docs/contracts/` cho shape) |
+| Dùng thử premium theo ngày (3–5 ngày, 1 lần/khách, không tính lượt bán) | Root + [20-ba-spec-premium-dung-thu.md](20-ba-spec-premium-dung-thu.md) (+ [10 §NV1](10-ba-spec-quan-tri-van-hanh.md) cho gói tháng) |
 | Phối hợp nhiều agent / chia việc | Root + [05-agents-team.md](05-agents-team.md) |
 
 ---

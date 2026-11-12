@@ -6,6 +6,9 @@
 // · PATCH action='grant'    → edit   (kích hoạt/gia hạn premium theo kỳ hạn
 //                             admin chọn — body.termMonths, mặc định 1 năm 6
 //                             tháng; server tự clamp + ghi log)
+// · PATCH action='trial'    → edit   (DÙNG THỬ theo ngày — body.trialDays 1–14,
+//                             mỗi khách 1 lần, chỉ khi đang không premium,
+//                             KHÔNG phải lượt bán; ba-spec 20)
 // · PATCH action='downgrade'→ ADMIN-ONLY CỨNG (hạ hạng — thao tác nhạy cảm)
 // · PATCH action='reset-password' → admin; quản lý CHỈ khi admin tick cờ riêng
 //                             `resetPassword` VÀ chỉ trên khách của mình
@@ -21,6 +24,7 @@ import { logActivity } from "@/lib/admin-activity-log";
 import {
   checkDemoteAdmin,
   isAdminPhone,
+  managerTargetDenial,
   normalizeAccountKind,
   parseAdminPhones,
   roleAfterCreate,
@@ -39,7 +43,16 @@ import { revokeTokensOfPhone } from "@/lib/device-token-server";
 import { isValidVnPhone, normalizeVnPhone, phoneToEmail } from "@/lib/phone";
 import { normalizePassword, PASSWORD_MIN_LENGTH } from "@/lib/password";
 import { resetPasswordFor } from "@/lib/temp-password";
-import { nextPremiumUntil, resolveTier } from "@/lib/tier";
+import {
+  nextPremiumUntil,
+  paidGrantAction,
+  parseTrialDays,
+  premiumKindFromGrants,
+  resolveTier,
+  trialDenial,
+  trialUntil,
+  type PremiumKind,
+} from "@/lib/tier";
 import { isVai, type Vai } from "@/lib/vai";
 import { normalizePlatform } from "@/lib/app-usage";
 import { canResetPassword, isMissingColumnError } from "@/lib/staff-permissions";
@@ -82,6 +95,114 @@ async function writeGrantLog(
   } catch {
     return false;
   }
+}
+
+/** Nhật ký cấp của một khách (activate/renew/trial/downgrade). Lỗi đọc ⇒
+ *  `ok:false` — dùng thử phải dừng (R4 fail-closed); gói tháng thì chỉ mất nhãn. */
+async function readGrantHistory(
+  admin: Admin,
+  phone: string,
+): Promise<{ ok: true; rows: { action: string | null; created_at: string | null }[] } | { ok: false }> {
+  try {
+    const { data, error } = await admin
+      .from("premium_grants")
+      .select("action, created_at")
+      .eq("customer_phone", phone);
+    if (error) return { ok: false };
+    return { ok: true, rows: (data ?? []) as { action: string | null; created_at: string | null }[] };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** Loại premium hiện tại của khách theo nhật ký cấp; đọc hỏng ⇒ null. */
+async function currentPremiumKind(admin: Admin, phone: string): Promise<PremiumKind | null> {
+  const h = await readGrantHistory(admin, phone);
+  return h.ok ? premiumKindFromGrants(h.rows) : null;
+}
+
+/**
+ * CẤP DÙNG THỬ (ba-spec 20, NV1/NV2). Dùng chung PATCH action='trial' và POST
+ * tạo tài khoản kèm dùng thử. Thứ tự là luật chống lạm dụng:
+ *  1. đối tượng phải là khách thật, không phải chính mình / nhân sự (R8)
+ *  2. đang premium ⇒ already_premium; đã từng dùng thử ⇒ trial_used (R3, R4)
+ *  3. GHI NHẬT KÝ CẤP TRƯỚC, đổi hạng SAU — 0088 chưa apply / ghi hỏng thì
+ *     KHÔNG mở premium (không lượt dùng thử nào lọt mà không để lại dấu).
+ *     Chỉ mục duy nhất của 0088 chặn hai lượt bấm cùng lúc (23505 ⇒ trial_used).
+ *  4. đổi hạng hỏng ⇒ gỡ lại dòng nhật ký vừa ghi, để khách không mất lượt.
+ */
+async function applyTrial(
+  admin: Admin,
+  who: { phone: string; role: "admin" | "manager" },
+  phone: string,
+  days: number,
+): Promise<{ ok: true; until: string } | { ok: false; status: number; code: string }> {
+  const target = await loadActor(admin, phone);
+  if (!target.ok) return { ok: false, status: 503, code: "unavailable" };
+  const cust = target.actor.customer;
+  if (!cust) return { ok: false, status: 404, code: "not_found" };
+  const denied = managerTargetDenial({
+    actorPhone: who.phone,
+    targetPhone: phone,
+    targetIsStaff: target.actor.role !== null,
+    targetKind: target.actor.kind,
+  });
+  if (denied) return { ok: false, status: 403, code: denied };
+
+  const history = await readGrantHistory(admin, phone);
+  if (!history.ok) return { ok: false, status: 503, code: "lookup_failed" };
+  const nowMs = Date.now();
+  const why = trialDenial({
+    effectiveTier: resolveTier(cust.tier as string, cust.premium_until as string | null, nowMs),
+    hasTrial: history.rows.some((r) => r.action === "trial"),
+  });
+  if (why) return { ok: false, status: 409, code: why };
+
+  const until = trialUntil(nowMs, days);
+  const nowIso = new Date(nowMs).toISOString();
+  let logId: string | null = null;
+  try {
+    const { data, error } = await admin
+      .from("premium_grants")
+      .insert({ customer_phone: phone, granted_by: who.phone, action: "trial", premium_until: until })
+      .select("id")
+      .single();
+    if (error) {
+      if ((error as { code?: string }).code === "23505") return { ok: false, status: 409, code: "trial_used" };
+      console.error("[accounts] ghi lượt dùng thử HỎNG (0088 đã apply chưa?):", error.code, error.message);
+      return { ok: false, status: 503, code: "trial_unavailable" };
+    }
+    logId = (data as { id: string } | null)?.id ?? null;
+  } catch {
+    return { ok: false, status: 503, code: "trial_unavailable" };
+  }
+
+  const { error: upErr } = await admin
+    .from("customers")
+    .update({ tier: "premium", premium_until: until, premium_activated_at: nowIso, updated_at: nowIso })
+    .eq("phone", phone);
+  if (upErr) {
+    if (logId) {
+      const { error: delErr } = await admin.from("premium_grants").delete().eq("id", logId);
+      if (delErr) console.error("[accounts] gỡ lượt dùng thử treo HỎNG — khách mất lượt, gỡ tay:", phone, logId);
+    }
+    return { ok: false, status: 500, code: "update_failed" };
+  }
+
+  await writeAudit(admin, {
+    actor: who.phone,
+    action: "trial",
+    target: phone,
+    detail: `days=${days} premium_until=${until}`,
+  });
+  await logActivity(admin, {
+    actorPhone: who.phone,
+    actorRole: who.role,
+    action: "account.grant",
+    target: phone,
+    detail: { grant: "trial", days, premiumUntil: until },
+  });
+  return { ok: true, until };
 }
 
 /** NV7 (ba-spec 10) — ghi 1 dòng NHẬT KÝ QUẢN TRỊ. Lỗi ghi KHÔNG chặn thao tác
@@ -401,23 +522,37 @@ export async function GET() {
   // (activate/renew); "đang quản" = khách đó hiện còn premium hiệu lực.
   const grantStats: { by: string; managing: number; totalGrants: number }[] =
     [];
+  // khách → loại premium theo lượt cấp gần nhất (ba-spec 20): `trial` để nhân
+  // sự thấy ai đang dùng thử mà gọi lại; không có lượt ⇒ không ghi (coi trả tiền)
+  const kindByPhone = new Map<string, PremiumKind>();
   try {
     const { data: grants, error: gErr } = await admin
       .from("premium_grants")
       .select("customer_phone, granted_by, action, created_at")
-      .in("action", ["activate", "renew"])
+      .in("action", ["activate", "renew", "trial"])
       .order("created_at", { ascending: false })
       .limit(5000);
     if (!gErr && grants) {
       const now = Date.now();
+      for (const g of grants) {
+        const phone = g.customer_phone as string;
+        if (!kindByPhone.has(phone))
+          kindByPhone.set(phone, g.action === "trial" ? "trial" : "paid");
+      }
+      // ĐANG DÙNG THỬ không phải "đang quản" — lượt thử không phải lượt bán (R5)
       const premiumNow = new Set(
         accounts
-          .filter((a) => resolveTier(a.tier, a.premiumUntil, now) === "premium")
+          .filter(
+            (a) =>
+              resolveTier(a.tier, a.premiumUntil, now) === "premium" &&
+              kindByPhone.get(a.phone) !== "trial",
+          )
           .map((a) => a.phone),
       );
       const latestBy = new Map<string, string>(); // khách → người cấp gần nhất
       const total = new Map<string, number>();
       for (const g of grants) {
+        if (g.action === "trial") continue;
         const phone = g.customer_phone as string;
         const by = g.granted_by as string;
         if (!latestBy.has(phone)) latestBy.set(phone, by);
@@ -444,7 +579,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     me: { phone: who.phone, role: who.role, scope: who.scope },
-    accounts: visible,
+    accounts: visible.map((a) => ({ ...a, premiumKind: kindByPhone.get(a.phone) ?? null })),
     grantStats,
     /** chạm trần đọc ⇒ UI nói thật là danh sách/số chưa đủ */
     truncated,
@@ -464,6 +599,8 @@ export async function POST(req: Request) {
     activatePremium?: boolean;
     /** kỳ hạn premium khi tạo kèm (số tháng); server tự clamp về khoảng hợp lệ */
     termMonths?: number;
+    /** tạo kèm DÙNG THỬ N ngày (ba-spec 20 NV2) — không đi chung activatePremium */
+    trialDays?: unknown;
   } | null;
   const role =
     body?.role === "manager"
@@ -499,6 +636,11 @@ export async function POST(req: Request) {
 
   // tạo kèm premium = một lần KÍCH HOẠT chuẩn (kỳ hạn admin chọn + log)
   const activate = Boolean(body.activatePremium);
+  // tạo kèm DÙNG THỬ: kiểm số ngày TRƯỚC mọi lượt ghi (ba-spec 20 R2)
+  const wantsTrial = body.trialDays !== undefined && body.trialDays !== null;
+  const trialDays = wantsTrial ? parseTrialDays(body.trialDays) : null;
+  if (wantsTrial && (trialDays == null || role !== "customer")) return err(400, "invalid_days");
+  if (wantsTrial && activate) return err(400, "trial_and_paid");
   const until = activate
     ? nextPremiumUntil(null, Date.now(), body.termMonths)
     : null;
@@ -550,6 +692,13 @@ export async function POST(req: Request) {
       premium_until: until,
     });
   }
+  // Dùng thử áp SAU khi tài khoản đã có: SĐT cũ đang premium / đã dùng thử
+  // thì tài khoản vẫn tạo/giữ, chỉ phần dùng thử không áp — trả rõ lý do (NV2).
+  let trial: { applied: true; premiumUntil: string } | { applied: false; code: string } | null = null;
+  if (trialDays != null) {
+    const t = await applyTrial(admin, who, phone, trialDays);
+    trial = t.ok ? { applied: true, premiumUntil: t.until } : { applied: false, code: t.code };
+  }
 
   // provision auth — cùng nếp webhook: đã tồn tại thì bỏ qua, KHÔNG đè mật khẩu
   const { error: authErr } = await admin.auth.admin.createUser({
@@ -571,7 +720,7 @@ export async function POST(req: Request) {
     actorRole: who.role,
     action: "account.create",
     target: phone,
-    detail: { role: finalRole, requestedRole: role, existed, activatePremium: activate },
+    detail: { role: finalRole, requestedRole: role, existed, activatePremium: activate, trialDays },
   });
   return NextResponse.json({
     ok: true,
@@ -581,6 +730,7 @@ export async function POST(req: Request) {
     existed,
     role: finalRole,
     keptRole: finalRole !== role,
+    trial,
   });
 }
 
@@ -592,6 +742,8 @@ export async function PATCH(req: Request) {
     guided?: boolean;
     /** grant: kỳ hạn (số tháng) admin chọn; server tự clamp */
     termMonths?: number;
+    /** trial: số ngày dùng thử 1–14; lạ ⇒ 400, KHÔNG ép (ba-spec 20 R2) */
+    trialDays?: unknown;
   } | null;
   if (!body?.phone) return err(400, "bad_phone");
   const phone = normalizeVnPhone(body.phone);
@@ -725,6 +877,19 @@ export async function PATCH(req: Request) {
     });
   }
 
+  if (body.action === "trial") {
+    // DÙNG THỬ theo ngày (ba-spec 20 NV1) — cùng cửa quyền với cấp gói
+    const who = await requirePermission("tai-khoan", "edit");
+    if (!who.ok) return err(who.status, who.code);
+    const days = parseTrialDays(body.trialDays);
+    if (days == null) return err(400, "invalid_days");
+    const admin = createAdminClient();
+    if (!admin) return err(503, "not_configured");
+    const r = await applyTrial(admin, who, phone, days);
+    if (!r.ok) return err(r.status, r.code);
+    return NextResponse.json({ ok: true, action: "trial", days, premiumUntil: r.until });
+  }
+
   if (body.action === "grant") {
     // KÍCH HOẠT / GIA HẠN premium (kỳ hạn admin chọn) — cần cờ tai-khoan:edit
     const who = await requirePermission("tai-khoan", "edit");
@@ -757,7 +922,12 @@ export async function PATCH(req: Request) {
       Date.now(),
       body.termMonths,
     );
-    const action = isActive ? ("renew" as const) : ("activate" as const);
+    // ĐANG DÙNG THỬ mà mua gói ⇒ lượt mua ĐẦU (`activate`), hạn vẫn nối sau
+    // dùng thử (ba-spec 20 R6). Đọc nhật ký hỏng ⇒ nhãn như cũ (renew), hạn đúng.
+    const action = paidGrantAction(
+      isActive,
+      isActive ? await currentPremiumKind(admin, phone) : null,
+    );
 
     const { error } = await admin
       .from("customers")

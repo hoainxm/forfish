@@ -228,6 +228,8 @@ export type GrantRow = {
   granted_by: string | null;
   action: string | null;
   created_at: string | null;
+  /** hạn SAU lượt cấp — cần cho đo dùng thử (ba-spec 20 NV5) */
+  premium_until?: string | null;
 };
 
 /** Lượt BÁN được tính = kích hoạt + gia hạn (hạ hạng không phải lượt bán). */
@@ -259,6 +261,48 @@ export function topGranters(
       who: who === "khong-ro" ? "Không rõ" : /\d{6,}/.test(who) ? maskPhone(who) : who,
       count,
     }));
+}
+
+/* ── dùng thử → mua (ba-spec 20 NV5) ─────────────────────────────────────── */
+
+/** Cửa sổ tính "mua sau dùng thử": tới 30 ngày sau ngày hết dùng thử. */
+export const TRIAL_CONVERT_WINDOW_DAYS = 30;
+
+/**
+ * Số lượt dùng thử (khách thật, từ `sinceIso`) và số khách trong đó có lượt
+ * `activate` từ lúc bắt đầu dùng thử tới 30 ngày sau ngày hết. Lượt dùng thử
+ * KHÔNG phải lượt bán (`isSaleGrant`) — đếm riêng ở đây.
+ */
+export function trialStats(
+  grants: readonly GrantRow[],
+  excluded: ReadonlySet<string>,
+  sinceIso: string,
+): { count: number; converted: number } {
+  const since = Date.parse(sinceIso);
+  const DAY = 24 * 3600 * 1000;
+  const activatesBy = new Map<string, number[]>();
+  for (const g of grants) {
+    if (g.action !== "activate" || !g.customer_phone) continue;
+    const t = g.created_at ? Date.parse(g.created_at) : NaN;
+    if (!Number.isFinite(t)) continue;
+    const list = activatesBy.get(g.customer_phone) ?? [];
+    list.push(t);
+    activatesBy.set(g.customer_phone, list);
+  }
+  let count = 0;
+  let converted = 0;
+  for (const g of grants) {
+    if (g.action !== "trial" || !isCountable(g.customer_phone, excluded)) continue;
+    const start = g.created_at ? Date.parse(g.created_at) : NaN;
+    if (!Number.isFinite(start) || start < since) continue;
+    count++;
+    const endRaw = g.premium_until ? Date.parse(g.premium_until) : NaN;
+    // hạn hỏng ⇒ lấy trần dài nhất của dùng thử (14 ngày) để không đếm hụt
+    const end = Number.isFinite(endRaw) ? endRaw : start + 14 * DAY;
+    const limit = end + TRIAL_CONVERT_WINDOW_DAYS * DAY;
+    if ((activatesBy.get(g.customer_phone as string) ?? []).some((t) => t >= start && t <= limit)) converted++;
+  }
+  return { count, converted };
 }
 
 /* ── máy theo loại ───────────────────────────────────────────────────────── */

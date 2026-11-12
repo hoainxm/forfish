@@ -20,6 +20,7 @@ import {
   parsePeriod,
   rangeStartIso,
   topGranters,
+  trialStats,
   usageSnapshot,
 } from "@/lib/admin-reports";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -78,7 +79,7 @@ export async function GET(req: Request) {
     readAll<GrantRow>((a, b) =>
       admin
         .from("premium_grants")
-        .select("customer_phone, granted_by, action, created_at")
+        .select("customer_phone, granted_by, action, created_at, premium_until")
         .gte("created_at", since)
         .order("id")
         .range(a, b),
@@ -168,6 +169,8 @@ export async function GET(req: Request) {
     accountsTotal: countableSignups?.length ?? null,
     snapshot: usageSnapshot(customers.rows, excluded, nowMs),
     granters: grantRows ? topGranters(grantRows, excluded, since) : null,
+    /** dùng thử → mua (ba-spec 20 NV5) — lượt thử không nằm trong `granters` */
+    trials: grantRows ? trialStats(grantRows, excluded, since) : null,
     platforms: deviceRows ? devicesByPlatform(deviceRows, excluded, nowMs) : null,
     failed,
     truncated,

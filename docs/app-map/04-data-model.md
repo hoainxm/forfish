@@ -54,6 +54,17 @@ ttl_days: 180
 
 ---
 
+### 0088 — DÙNG THỬ PREMIUM THEO NGÀY — migration [`0088_premium_dung_thu.sql`](../../supabase/migrations/0088_premium_dung_thu.sql) (2026-11-12) — 🔴 **CHƯA APPLY prod** (chủ dự án tự apply)
+
+Hành vi: [20-ba-spec](20-ba-spec-premium-dung-thu.md). Nhân sự cho bà con dùng thử premium 1–14 ngày (dựng sẵn 3/5), mỗi khách một lần, không phải lượt bán. Chỉ đổi `premium_grants`, không thêm cột, không đụng dữ liệu cũ:
+
+| Thay đổi | Ghi chú |
+|---|---|
+| `premium_grants_action_check` nới thành `activate\|renew\|downgrade\|trial` | `trial` = lượt dùng thử; `isSaleGrant`, "đang quản", `topGranters` KHÔNG đếm |
+| chỉ mục duy nhất `premium_grants_one_trial_idx (customer_phone) where action='trial'` | luật "mỗi khách một lần" chặn ở DB — hai nhân sự bấm cùng lúc thì lượt sau vấp 23505 ⇒ route trả 409 `trial_used` |
+
+Chưa apply mà code mới đã chạy: route ghi nhật ký `trial` TRƯỚC khi đổi hạng ⇒ ghi bị ràng buộc cũ chặn ⇒ 503 `trial_unavailable`, KHÔNG mở premium. Gói tháng + các luồng khác không đổi. Hạn dùng thử = 23:59:59 giờ VN của (ngày cấp + N) (`trialUntil`, `lib/tier.ts`).
+
 ### 0087 — S-TRACKING: TRẠNG THÁI KẾT NỐI THẬT — migration [`0087_stracking_ket_noi.sql`](../../supabase/migrations/0087_stracking_ket_noi.sql) (2026-11-06) — ✅ **ĐÃ APPLY prod 2026-11-06** (Supabase MCP)
 
 Nhân viên hỏi "Sao ko báo mkn" khi thẻ GL-99280-TS ghi "cập nhật 06:45" lúc 13:11 — máy KHÔNG mất kết nối (đợt cuối 04/09 → 07/09); dòng đó là `cap_nhat_nguon` ("Ngày cập nhật" bản ghi S-Tracking, chỉ lấy lại lượt 07:30). Anh Long: "fix hết đi". `stracking_thiet_bi` thêm `mat_ket_noi_tu` (đang mất từ, null = không), `co_lai_luc` (đợt gần nhất có lại lúc), `ket_noi_kiem_luc` (lúc GPU kiểm) + index một phần `mat_ket_noi_tu is not null`. Máy GPU gửi `ketNoi: [{serial, matTu, coLai}]` mỗi 15 phút (đợt mới nhất mỗi máy trong báo cáo mất kết nối: ~22 ngày khơi / ~9 ngày bờ — `trangThaiKetNoi`); máy chủ (route nhap) chỉ update máy đã có, máy không có trong báo cáo không đụng. Thẻ máy hiện "Có tín hiệu" / "Mất tín hiệu từ …" thay dòng "cập nhật HH:MM".
@@ -304,7 +315,7 @@ Premium mở **dự báo cá** + **dự báo thời tiết quá 3 ngày** (basic
 |---|---|
 | `customers.role text default 'customer'` (check `customer\|manager\|admin` — **'admin' mở ở [0019](../../supabase/migrations/0019_admin_role.sql), 2026-07-28**) | **manager** = đại lý/sales (admin tạo ở `/quan-tri`): vào được `/quan-tri` với quyền THEO BẢNG PHÂN QUYỀN (migration `0028` — mặc định 5 tab: Tài khoản/Sản phẩm/Thuyền viên/Thông báo/Chỗ bán); KÍCH HOẠT/GIA HẠN premium. **admin** = FULL-ADMIN trong DB (ngang env `ADMIN_PHONES`): `requireStaff` coi `role='admin'` = toàn quyền. Bootstrap admin đầu (sau khi đăng ký ở `/dang-ky`): `insert into customers (phone,role) values ('<sđt>','admin') on conflict (phone) do update set role='admin';` |
 | `customers.premium_activated_at timestamptz` | mốc kích hoạt gần nhất (hạn ở `premium_until`) |
-| bảng `premium_grants` | LOG mỗi lần cấp: `customer_phone` · `granted_by` (SĐT người thao tác) · `action` (`activate\|renew\|downgrade`) · `activated_at` · `premium_until` (hạn SAU thao tác) — đếm được mỗi quản lý đang quản bao nhiêu premium. RLS bật, **KHÔNG policy** = chỉ service-role đọc/ghi |
+| bảng `premium_grants` | LOG mỗi lần cấp: `customer_phone` · `granted_by` (SĐT người thao tác) · `action` (`activate\|renew\|downgrade\|trial` — `trial` từ 0088, dùng thử theo ngày, mỗi khách ≤1 lượt) · `activated_at` · `premium_until` (hạn SAU thao tác) — đếm được mỗi quản lý đang quản bao nhiêu premium. RLS bật, **KHÔNG policy** = chỉ service-role đọc/ghi |
 
 - **KỲ HẠN: CHỌN ĐƯỢC, mặc định 1 NĂM 6 THÁNG** (`PREMIUM_TERM_MONTHS=18` + `PREMIUM_TERM_PRESETS`/`clampTermMonths`/`nextPremiumUntil(cur,now,months?)` trong `src/lib/tier.ts`, có test): còn hạn thì gia hạn CỘNG NỐI vào hạn cũ, hết hạn thì tính từ hiện tại. Kỳ hạn tính **tháng lịch** (trước 2026-08-10 là `PREMIUM_TERM_DAYS=548` ngày cứng). Admin chọn gói (`1 năm`/`1 năm 6 tháng`) hoặc nhập số tháng tuỳ ý ở `/quan-tri`; server nhận `termMonths` qua POST/PATCH grant và **tự clamp 1–120** (body bịa số không phá được hạn). **Ưu đãi 2026-08-04**: gói 500k nâng 1 năm → 1 năm 6 tháng. Ngoại lệ **300k = 1 năm** cho 2 SĐT cũ (`0384668304`, `0376002882`) — KHÔNG có luồng cấp 300k trong app. Migration [`0032_premium_uu_dai_6thang`](../../supabase/migrations/0032_premium_uu_dai_6thang.sql) là bản **đối soát** bản +6 tháng: cắt `0376002882` về 1 năm (chốt chặn >13 tháng, idempotent) + **xoá 12 dòng log dấu migration** để trả credit "người cấp" về staff thật — không đụng `premium_until` đã cộng.
 - **Đối soát lẻ từng SĐT cấp nhầm kỳ hạn**: khi tài khoản được cấp premium với kỳ hạn sai (vd tạo TRƯỚC khi có ô chọn kỳ hạn → dính mặc định 18 tháng dù chỉ mua 1 năm), viết 1 migration cắt/nới cột `premium_until` theo mốc `premium_activated_at`, idempotent (guard theo kỳ hạn hiện có), KHÔNG ghi thêm `premium_grants`. Bản đầu: [`0044_premium_0971516459_cat_ve_1nam`](../../supabase/migrations/0044_premium_0971516459_cat_ve_1nam.sql) (2026-08-10) — cắt `0971516459` từ 18 → 12 tháng (trừ 6 tháng, guard `> premium_activated_at + 13 months`). ⚠️ CHƯA apply prod.

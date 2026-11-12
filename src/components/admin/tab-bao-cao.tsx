@@ -32,6 +32,8 @@ type Report = {
   accountsTotal: number | null;
   snapshot: UsageSnapshot;
   granters: { who: string; count: number }[] | null;
+  /** dùng thử → mua (ba-spec 20 NV5); null = chưa đọc được nhật ký cấp */
+  trials?: { count: number; converted: number } | null;
   platforms: Record<"ios" | "android" | "khac", number> | null;
   failed: string[];
   truncated: string[];
@@ -156,6 +158,7 @@ export function ReportsTab() {
           </div>
 
           <GrantersCard granters={data.granters} period={data.period} />
+          <TrialsCard trials={data.trials} period={data.period} />
         </>
       )}
     </div>
@@ -328,6 +331,39 @@ function GrantersCard({ granters, period }: { granters: Report["granters"]; peri
             </li>
           ))}
         </ol>
+      )}
+    </section>
+  );
+}
+
+/** Dùng thử → mua (ba-spec 20 NV5). Lượt thử KHÔNG nằm trong số lượt cấp ở trên. */
+function TrialsCard({ trials, period }: { trials: Report["trials"]; period: ReportPeriod }) {
+  return (
+    <section className="surface px-4 py-4">
+      <h3 className="text-[1rem] font-bold text-navy">Dùng thử premium</h3>
+      <p className="mt-0.5 text-[0.8125rem] leading-snug text-muted">
+        Lượt dùng thử trong {spanText(period)} qua, và bao nhiêu khách mua gói trong vòng 30 ngày sau khi hết thử. Không tính vào lượt cấp.
+      </p>
+      {!trials ? (
+        <p className="mt-3 text-[0.875rem] text-muted">Chưa đọc được lịch sử cấp premium.</p>
+      ) : trials.count === 0 ? (
+        <p className="mt-3 text-[0.875rem] text-muted">Chưa có lượt dùng thử nào trong khoảng này.</p>
+      ) : (
+        <dl className="mt-3 grid grid-cols-2 gap-3 text-[0.9375rem]">
+          <div>
+            <dt className="text-muted">Lượt dùng thử</dt>
+            <dd className="tabular-nums text-[1.25rem] font-bold text-navy">{fmtN(trials.count)}</dd>
+          </div>
+          <div>
+            <dt className="text-muted">Đã mua gói</dt>
+            <dd className="tabular-nums text-[1.25rem] font-bold text-navy">
+              {fmtN(trials.converted)}
+              <span className="ml-1.5 text-[0.8125rem] font-semibold text-muted">
+                {pctText(trials.converted, trials.count, "") ?? ""}
+              </span>
+            </dd>
+          </div>
+        </dl>
       )}
     </section>
   );

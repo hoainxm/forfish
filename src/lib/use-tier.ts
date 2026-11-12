@@ -32,6 +32,8 @@ import {
   TIER_UNTIL_KEY,
   type FeatureAccess,
   type PremiumMark,
+  readTierKind,
+  type PremiumKind,
 } from "@/lib/tier";
 
 /* Khoá dấu hạng nay định nghĩa ở lib/tier.ts (module THUẦN) để
@@ -77,6 +79,8 @@ export function useFeatureAccess(): {
   ready: boolean;
   /** hạn premium (ISO) để bày "dùng tới ngày nào"; null = không hạn/chưa biết */
   premiumUntil: string | null;
+  /** loại premium đã biết (`trial` = đang dùng thử, ba-spec 20) — chỉ để NÓI */
+  premiumKind: PremiumKind | null;
   /** ĐANG MỞ BẰNG QUYỀN ĐÃ LƯU TRÊN MÁY, không phải bằng phiên đăng nhập còn
    *  sống (ca C-7). Màn hình PHẢI nói thẳng chuyện này — chủ dự án chốt: không
    *  được giả vờ là đã đăng nhập, mà cũng không được bắt bà con "Đăng nhập"
@@ -88,6 +92,7 @@ export function useFeatureAccess(): {
   const [premium, setPremium] = useState<boolean | null>(null);
   const [cachedMark, setCachedMark] = useState<PremiumMark>("unknown");
   const [premiumUntil, setPremiumUntil] = useState<string | null>(null);
+  const [premiumKind, setPremiumKind] = useState<PremiumKind | null>(null);
   const [online, setOnline] = useState(true);
   /* `premium === false` CHỈ VÌ HẠN (máy chủ vẫn ghi tier='premium'). Tách ra
      vì đồng hồ máy lệch là chuyện thường ngoài biển — xem featureAccessDecision. */
@@ -124,6 +129,7 @@ export function useFeatureAccess(): {
       const until = readCachedUntil();
       setCachedMark(effectivePremiumMark(readCachedMark(), until, Date.now()));
       setPremiumUntil(until);
+      setPremiumKind(readTierKind());
       setDeviceBound(offlineIdentityPhone() !== null);
       setTokenPresent(readToken() !== null);
     };
@@ -190,8 +196,9 @@ export function useFeatureAccess(): {
       ngoài biển; so hạn bằng đồng hồ máy lúc GHI là xoá quyền đã trả tiền. */
   useEffect(() => {
     const onTier = (e: Event) => {
-      const d = (e as CustomEvent<{ marked: boolean; until: string | null }>)
-        .detail;
+      const d = (
+        e as CustomEvent<{ marked: boolean; until: string | null; kind?: PremiumKind | null }>
+      ).detail;
       if (!d) return;
       const now = Date.now();
       const live =
@@ -201,6 +208,7 @@ export function useFeatureAccess(): {
       // trong máy thay vì tin đồng hồ máy một cách mù quáng
       setExpiredOnly(d.marked && !live);
       setPremiumUntil(d.until);
+      setPremiumKind(d.kind ?? null);
       setCachedMark(
         effectivePremiumMark(d.marked ? "premium" : "basic", d.until, now),
       );
@@ -272,5 +280,5 @@ export function useFeatureAccess(): {
     access === "open" &&
     cachedMark === "premium" &&
     (premium == null || !user);
-  return { access, ready: access !== "checking", premiumUntil, savedAccess };
+  return { access, ready: access !== "checking", premiumUntil, premiumKind, savedAccess };
 }
