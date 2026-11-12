@@ -54,7 +54,7 @@ ttl_days: 180
 
 ---
 
-### 0088 — DÙNG THỬ PREMIUM THEO NGÀY — migration [`0088_premium_dung_thu.sql`](../../supabase/migrations/0088_premium_dung_thu.sql) (2026-11-12) — 🔴 **CHƯA APPLY prod** (chủ dự án tự apply)
+### 0088 — DÙNG THỬ PREMIUM THEO NGÀY — migration [`0088_premium_dung_thu.sql`](../../supabase/migrations/0088_premium_dung_thu.sql) (2026-11-12) — ✅ **ĐÃ APPLY prod 2026-11-12** (Supabase MCP; soi lại: ràng buộc nhận `trial`, chỉ mục `premium_grants_one_trial_idx` có, 206 dòng cũ giữ nguyên)
 
 Hành vi: [20-ba-spec](20-ba-spec-premium-dung-thu.md). Nhân sự cho bà con dùng thử premium 1–14 ngày (dựng sẵn 3/5), mỗi khách một lần, không phải lượt bán. Chỉ đổi `premium_grants`, không thêm cột, không đụng dữ liệu cũ:
 

@@ -4,6 +4,7 @@
 covers: src/lib/tier.ts, src/app/api/admin/accounts, src/components/admin/tab-tai-khoan.tsx, src/components/admin/tab-bao-cao.tsx, src/lib/admin-reports.ts, src/app/api/me/heartbeat, src/app/api/admin/reports
 last_verified: 2026-11-12
 ttl_days: 90
+<!-- re-verified: 2026-11-12c — 0088 ✅ ĐÃ APPLY prod 2026-11-12 (Supabase MCP) — cấp dùng thử chạy thật; AC integration (2, 4, 5, 6, 8, 11, 12, 13) vẫn chờ chạy tay trên /quan-tri. -->
 <!-- re-verified: 2026-11-12b — ĐÃ BUILD (code khớp spec; 0088 🔴 CHƯA APPLY prod — chưa apply thì cấp dùng thử trả 503 `trial_unavailable`, không mở premium). Luật thuần ở `lib/tier.ts` (`trialUntil`, `parseTrialDays`, `trialDenial`, `premiumKindFromGrants`, `paidGrantAction`) + `lib/admin-reports.ts` (`trialStats`); test `premium-dung-thu.test.ts` phủ AC-1, 3, 4/5 (luật), 7, 9 (luật + hạn), 10, 13 (câu hạng), 14. AC integration (2, 4, 5, 6, 8, 11, 12, 13 phía máy chủ) CHƯA có test tự động — repo chưa có khung giả Supabase cho route; chạy tay sau khi apply 0088. Thêm so với bản spec: chỉ mục duy nhất 0088 chặn hai lượt bấm cùng lúc (R4); UI chỉ dựng sẵn 3/5 ngày, khoảng 1–14 là luật máy chủ. -->
 <!-- SPEC MỚI 2026-11-12 — CHƯA BUILD. Đối chiếu code `main` 3f829c7f: kỳ hạn nhỏ nhất hôm nay = `PREMIUM_TERM_MIN_MONTHS = 1` (tier.ts), gói dựng sẵn 12/18 tháng, `nextPremiumUntil` cộng tháng lịch; `premium_grants.action` chỉ nhận activate/renew/downgrade (0007); `isSaleGrant` đếm activate+renew là LƯỢT BÁN. `last_verified` giữ ngày rà, tới khi code khớp mới đổi nghĩa thành "đã khớp code". -->
 
@@ -216,3 +217,4 @@ Chạy tuần tự (Orchestrator), không spawn team: 1 nghiệp vụ chính, cr
 ## History
 - 2026-11-12 — Tạo spec (CHƯA BUILD). Nguồn: yêu cầu "kích hoạt premium theo ngày 3–5 ngày cho người dùng trải nghiệm, hiện tối thiểu 1 tháng".
 - 2026-11-12b — BUILD theo spec (chủ dự án duyệt migration 0088). Chưa apply 0088 lên prod; AC integration chạy tay sau apply.
+- 2026-11-12c — Apply 0088 lên prod (chủ dự án duyệt).
