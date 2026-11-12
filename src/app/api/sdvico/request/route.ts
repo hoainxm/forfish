@@ -2,13 +2,13 @@
 // → ghi vào hộp yêu cầu tư vấn của CRM, nhân viên SDWork gọi lại.
 //
 // Dùng được CẢ KHI CHƯA ĐĂNG NHẬP (khách mới = mối bán hàng): chỉ cần tên +
-// SĐT hợp lệ. Đăng nhập rồi thì route tự điền tên/SĐT từ hồ sơ nếu thiếu.
+// SĐT hợp lệ. Đăng nhập rồi thì SĐT LUÔN lấy từ phiên (G13), tên điền từ hồ sơ nếu thiếu.
 
 import { NextResponse } from "next/server";
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createConsultationRequest, isAssetSyncConfigured } from "@/lib/sdwork-assets";
-import { normalizeVnPhone, isValidVnPhone } from "@/lib/phone";
+import { contactPhone, normalizeVnPhone, isValidVnPhone } from "@/lib/phone";
 import { buildRequestMessage } from "@/lib/sdwork-request";
 
 export async function POST(req: Request) {
@@ -50,7 +50,8 @@ export async function POST(req: Request) {
     }
   }
 
-  const phoneRaw = body.phone?.trim() || profilePhone || "";
+  // Đăng nhập rồi ⇒ SĐT phiên thắng số gửi kèm (G13).
+  const phoneRaw = contactPhone(profilePhone, body.phone);
   const name = body.name?.trim() || profileName || "Khách SDFish";
   if (!isValidVnPhone(phoneRaw)) {
     return NextResponse.json({ ok: false, code: "invalid_phone" }, { status: 400 });

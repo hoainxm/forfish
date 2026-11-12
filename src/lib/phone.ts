@@ -54,3 +54,19 @@ export function phoneFromAuthEmail(email: string | null | undefined): string | n
   const phone = normalizeVnPhone(local);
   return phone === "0" ? null : phone;
 }
+
+/**
+ * SĐT người liên hệ cho form gửi SDVICO (đơn mua `/api/sdvico/order`, yêu cầu
+ * tư vấn `/api/sdvico/request`). Đã đăng nhập ⇒ LUÔN SĐT của phiên, bỏ qua số
+ * gửi kèm trong body — trước đây số gửi kèm thắng, người đã đăng nhập tạo được
+ * đơn đứng tên SĐT người khác (G13, ba-spec 19). Khách vãng lai ⇒ số họ tự gõ
+ * (form đó là mối bán hàng, CSKH gọi lại xác minh). Trả "" khi không có gì.
+ */
+export function contactPhone(
+  sessionPhone: string | null | undefined,
+  typedPhone: string | null | undefined,
+): string {
+  const fromSession = sessionPhone?.trim();
+  if (fromSession) return fromSession;
+  return typedPhone?.trim() ?? "";
+}

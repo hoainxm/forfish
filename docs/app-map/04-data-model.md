@@ -5,7 +5,8 @@
 **Load khi / Load when**: đụng DB/migration/RLS, sửa `src/lib/documents.ts`, nối vault với Supabase, hoặc thêm bảng mới.
 
 covers: supabase/migrations, src/lib/documents.ts, src/lib/owned-assets.ts, src/lib/sdwork-webhook.ts, src/lib/sdwork-outbound.ts, src/lib/phone.ts
-last_verified: 2026-11-09
+last_verified: 2026-11-12
+<!-- re-verified: 2026-11-12 — `lib/phone.ts` thêm `contactPhone(session, typed)` (THUẦN, chọn SĐT người liên hệ cho /api/sdvico/order + /api/sdvico/request: có phiên ⇒ SĐT phiên — vá G13 ba-spec 19). KHÔNG đổi schema, migration, RLS hay cách chuẩn hoá SĐT (`normalizeVnPhone`/`isValidVnPhone` giữ nguyên). -->
 <!-- re-verified: 2026-11-09c — `model-params.v1.json` khối `loTrinh`: BỎ `loaiTheoNghe` (chủ tàu tự chọn loài), THÊM `dauTrungBinh{nghề:{litGio, litDem?}}`; `hieuUngRam` thêm `keo-doi` −0,097 · `luoi-keo` 0; `chang.luoi-re` 0,79/5,06/1,31. Nguồn sự thật `src/data/lo-trinh-params.json`. Kho máy: `forfish.routes.v1` input thêm `loai?` (tuỳ chọn). Không migration, không RLS. -->
 <!-- re-verified: 2026-11-08g — `model-params.v1.json` `loTrinh.dayNghe` {nghề: {ran,n2,n4,n12,sau,gan}} + `loTrinh.dayO` {"i,j": [6 tỉ phần]} (nguồn `src/data/lo-trinh-params.json` + `src/data/day-o025.json` MỚI, ~31 KB, chỉ số). `forfish.routes.v1[]` thêm trường tuỳ chọn `trongSo: [{ma, ten, trangThai, cau}]` (bảng lớp dữ liệu lúc tính); bản cũ không có vẫn đọc. Không đổi tên khoá, không migration. -->
 <!-- re-verified: 2026-11-08i — KHOÁ MÁY MỚI `forfish.trip-log.v1` (localStorage, `lib/lo-trinh/nhat-ky.ts`): mảng `NhatKyChuyen` {routeId, ten, nghe, ngayDi, ngayNenVe, viTri[{at, lat, lon, cachHaiLy, ngayThu}], sanLuong?{kg, luc}} — đo hiệu quả lộ trình CHỈ TRONG MÁY, trần 60 chuyến × 200 lần; sao lưu `transfer`. `forfish.routes.v1[]` thêm trường tuỳ chọn `input.diemDau`, `ketQua.dauTheoPha {chay, danh, den}`, `ketQua.tuChoDung`. KHÔNG bảng/migration Supabase. -->

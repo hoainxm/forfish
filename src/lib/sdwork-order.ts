@@ -23,6 +23,18 @@ const ORDER_URL =
   process.env.SDFISH_ORDER_URL ||
   (CRM_BASE ? `${CRM_BASE}/functions/v1/sdfish-order` : "");
 
+/**
+ * Mã chống trùng do MÁY sinh một lần cho mỗi form (`sdvico-request.tsx`):
+ * `sdf-` + UUID, hoặc dạng dự phòng `sdf-<thời điểm>-<ngẫu nhiên>` cho máy cũ
+ * thiếu `crypto.randomUUID`. CRM gửi trùng ref ⇒ trả lại ĐƠN CŨ, nên route
+ * không nhận mã tuỳ ý / ngắn (G13, ba-spec 19): ai gửi mã ngắn đoán được là có
+ * thể nhận lại đơn của người khác. Dài tối đa 80 ký tự (cột CRM).
+ */
+const ORDER_REF_RE = /^sdf-[a-z0-9-]{20,76}$/i;
+export function isValidOrderRef(ref: string): boolean {
+  return ORDER_REF_RE.test(ref);
+}
+
 export function isOrderConfigured(): boolean {
   return Boolean(ORDER_URL && ORDER_SECRET);
 }

@@ -1,5 +1,6 @@
 // Tạo ĐƠN MUA từ SDFish → SDWork (function sdfish-order). Route mỏng: validate
-// + điền tên/SĐT từ danh tính (nếu đăng nhập) rồi gọi createSdfishOrder.
+// + điền tên từ danh tính, SĐT LUÔN của phiên khi đã đăng nhập (G13), rồi gọi
+// createSdfishOrder.
 //
 // Dùng được CẢ KHI CHƯA ĐĂNG NHẬP (khách vãng lai = mối bán hàng) — chỉ cần tên
 // + SĐT hợp lệ; CRM tự tạo/khớp khách theo SĐT. Phase 1: 1 sản phẩm, qty=1, giá
@@ -9,8 +10,8 @@
 import { NextResponse } from "next/server";
 import { identityFromRequest } from "@/lib/api-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isValidVnPhone, normalizeVnPhone } from "@/lib/phone";
-import { createSdfishOrder, isOrderConfigured } from "@/lib/sdwork-order";
+import { contactPhone, isValidVnPhone, normalizeVnPhone } from "@/lib/phone";
+import { createSdfishOrder, isOrderConfigured, isValidOrderRef } from "@/lib/sdwork-order";
 
 export async function POST(req: Request) {
   if (!isOrderConfigured()) {
@@ -31,9 +32,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, code: "bad_request" }, { status: 400 });
   }
 
-  const externalRef = (body.externalRef ?? "").trim().slice(0, 80);
+  const externalRef = (body.externalRef ?? "").trim();
   if (!externalRef) {
     return NextResponse.json({ ok: false, code: "missing_ref" }, { status: 400 });
+  }
+  if (!isValidOrderRef(externalRef)) {
+    return NextResponse.json({ ok: false, code: "bad_ref" }, { status: 400 });
   }
   const productName = (body.productName ?? "").trim().slice(0, 120);
   if (!productName) {
@@ -57,7 +61,8 @@ export async function POST(req: Request) {
     }
   }
 
-  const phoneRaw = body.phone?.trim() || profilePhone || "";
+  // Đăng nhập rồi ⇒ SĐT phiên thắng số gửi kèm (G13).
+  const phoneRaw = contactPhone(profilePhone, body.phone);
   const fullName = (body.name?.trim() || profileName || "Khách SDFish").slice(0, 120);
   if (!isValidVnPhone(phoneRaw)) {
     return NextResponse.json({ ok: false, code: "invalid_phone" }, { status: 400 });
