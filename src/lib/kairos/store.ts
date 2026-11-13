@@ -91,7 +91,9 @@ export interface NewPost {
 export type PostPatch = Partial<
   Pick<
     PostFull,
-    "body" | "images" | "topic" | "regions" | "provinces" | "ports" | "mentions" | "edited_at" | "pinned_until" | "hidden" | "hidden_reason" | "mod_state" | "mod_checked_at" | "feed_at"
+    | "body" | "images" | "topic" | "regions" | "provinces" | "ports" | "mentions" | "edited_at" | "pinned_until" | "hidden" | "hidden_reason" | "mod_state" | "mod_checked_at" | "feed_at"
+    // máy thu vớt file đính kèm cho bài gov vào kho thiếu file (PUT /api/kairos/dinh-kem, chinh-sach.ganDinhKem)
+    | "attachments"
   >
 >;
 export type CommentPatch = Partial<Pick<CommentFull, "hidden" | "mod_state" | "mod_checked_at">>;

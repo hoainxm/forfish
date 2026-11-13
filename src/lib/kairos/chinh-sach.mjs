@@ -440,6 +440,70 @@ export function kiemDinhKem(raw, opt = {}) {
   return out;
 }
 
+// ───────── VỚT FILE ĐÍNH KÈM BÀI ĐÃ VÀO KHO (14 §21b, 2026-11-13) ─────────
+// Bà con Bình Định báo 13/11: "bữa gõ mã tàu dễ mà nay ko gõ tìm được". Gốc: tường lửa F5 của gialai.gov.vn trả
+// 200 + trang "Request Rejected" 245 byte cho máy GPU khi request thiếu Accept-Language thật ⇒ máy thu tưởng đã đọc
+// trang chi tiết, bài vào kho KHÔNG file đính kèm (QĐ 4475 đợt 06/2026) ⇒ không dòng ⇒ không ô Tra cứu, và sổ link
+// không bao giờ đọc lại. Nay: nhận ra trang chặn (`laTrangChan`), bài hỏng đọc nằm hàng đợi vớt (`gopHangVot`), đọc
+// lại được thì gửi file cho máy chủ gắn vào bài còn TRỐNG file (`ganDinhKem`), rồi gửi dòng như thường.
+
+/** Hàng đợi vớt giữ một bài bao lâu / tối đa bao nhiêu bài. */
+export const VOT_GIU_MS = 14 * 24 * 3600_000;
+export const VOT_TOI_DA = 200;
+
+/**
+ * Trang tải về là trang CHẶN/LỖI của tường lửa, không phải văn bản: F5 "Request Rejected"/"The requested URL was
+ * rejected", Cloudflare "Attention Required"/"Just a moment", "Access Denied", hoặc trang quá ngắn (< 1500 ký tự —
+ * trang văn bản thật của cổng tỉnh ≥ 100 KB). Rỗng ⇒ true.
+ * @param {string | null | undefined} html
+ */
+export function laTrangChan(html) {
+  const h = String(html ?? "");
+  if (h.length < 1500) return true;
+  const dau = h.slice(0, 4000);
+  return /request rejected|requested url was rejected|access denied|attention required|just a moment\.\.\.|support id is/i.test(dau);
+}
+
+/**
+ * Máy chủ gắn file đính kèm cho bài ĐÃ vào kho: chỉ khi bài đang TRỐNG file (không đè danh sách đã có — dòng đã đọc
+ * gắn theo băm link file), file phải trên tên miền nhà nước. Trả mảng cần ghi, hoặc null = không đổi gì.
+ * @param {unknown} hienCo attachments đang lưu của bài
+ * @param {unknown} moi gói máy thu
+ * @returns {DinhKem[] | null}
+ */
+export function ganDinhKem(hienCo, moi) {
+  if (kiemDinhKem(hienCo).length) return null;
+  const ds = kiemDinhKem(moi, { chiGov: true });
+  return ds.length ? ds : null;
+}
+
+/**
+ * Hàng đợi vớt của máy thu: gộp thêm link bài, bỏ trùng (giữ mốc vào hàng cũ nhất + lần thử gần nhất), bỏ quá
+ * VOT_GIU_MS, giữ ≤ VOT_TOI_DA bài vào hàng gần nhất; xếp bài LÂU CHƯA THỬ lên đầu (chưa thử bao giờ = 0) ⇒ vài bài bị
+ * chặn mãi không giữ chỗ của bài mới. `thu` = mốc máy thu thử đọc lại gần nhất.
+ * @param {unknown} cu
+ * @param {string[]} them link bài gov đọc trang chi tiết hỏng/bị chặn lượt này
+ * @param {number} now
+ * @returns {{ postUrl: string, ts: number, thu: number }[]}
+ */
+export function gopHangVot(cu, them, now) {
+  /** @type {Map<string, { postUrl: string, ts: number, thu: number }>} */
+  const theoLink = new Map();
+  const vao = [...(Array.isArray(cu) ? cu : []), ...them.map((postUrl) => ({ postUrl, ts: now, thu: 0 }))];
+  for (const x of vao) {
+    if (!x || typeof x.postUrl !== "string" || !/^https:\/\//.test(x.postUrl)) continue;
+    const ts = Number.isFinite(x.ts) ? x.ts : now;
+    const thu = Number.isFinite(x.thu) ? x.thu : 0;
+    if (now - ts > VOT_GIU_MS) continue;
+    const da = theoLink.get(x.postUrl);
+    theoLink.set(x.postUrl, da ? { postUrl: x.postUrl, ts: Math.min(da.ts, ts), thu: Math.max(da.thu, thu) } : { postUrl: x.postUrl, ts, thu });
+  }
+  return [...theoLink.values()]
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, VOT_TOI_DA)
+    .sort((a, b) => a.thu - b.thu || a.ts - b.ts);
+}
+
 // ───────── TRA CỨU DANH SÁCH TRONG FILE ĐÍNH KÈM (14 §21b, anh Long 2026-10-26: "các tin dạng này cho click tra cứu
 // tên tàu hoặc chủ tàu để show luôn đoạn đó cho nhanh") ─────────
 // Máy thu (GPU) chạy `pdftotext -layout` lên file PDF danh sách ⇒ chữ ở đây ĐỌC THÀNH TỪNG DÒNG TÀU: dòng = một số thứ

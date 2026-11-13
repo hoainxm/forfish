@@ -35,7 +35,9 @@ import {
   chinhSachCuMs, chuanSo, chiaLo, chonBai, docBaoDuocPhep, docGarturl, docNguon, docOg, docTomTat, ghiSo, gopHangDoi, GN_BATCH_URL,
   GOI_NHAP_TOI_DA, idTuLinkGN, khoaTrangGN, locBaiMoi, mucGui, nguonGui, parseFeed, promptTomTat, thanGarturl,
 } from "../src/lib/kairos/thu-core.mjs";
-import { docBaiGov, docDanhMucGov, docDongDanhSach, docVbdh, laTinChoBaCon, promptTomTatChinhSach, urlVbdh } from "../src/lib/kairos/chinh-sach.mjs";
+import {
+  docBaiGov, docDanhMucGov, docDongDanhSach, docVbdh, gopHangVot, laTinChoBaCon, laTrangChan, promptTomTatChinhSach, urlVbdh,
+} from "../src/lib/kairos/chinh-sach.mjs";
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -54,13 +56,17 @@ const DUNG_CA_LUOT = new Set(["het_han_muc", "chua_dang_nhap", "model_khong_ho_t
 const argv = process.argv.slice(2);
 const dry = argv.includes("--thu") || argv.includes("--dry");
 const chiNguon = (argv.find((a) => a.startsWith("--nguon=")) ?? "").slice(8).split(",").filter(Boolean);
+/** `--vot=<link bài>,<link bài>`: xếp thêm bài đã vào kho thiếu file đính kèm vào hàng đợi vớt (vá tay, runbook › Kairos) */
+const themVot = (argv.find((a) => a.startsWith("--vot=")) ?? "").slice(6).split(",").map((x) => x.trim()).filter((x) => x.startsWith("https://"));
+/** Bài vớt mỗi lượt (mỗi bài = 1 trang chi tiết + ≤3 PDF). */
+const VOT_MOI_LUOT = 6;
 
 /** Đường lùi curl: vài cổng nhà nước (mae.gov.vn) trả header HTTP sai chuẩn ("Unexpected whitespace after header value")
  *  ⇒ fetch của Node từ chối, curl chịu được. Không ném; hỏng ⇒ null. Chỉ dùng khi fetch đã hỏng vì lỗi giao thức. */
 function curlChu(url, ms = 20_000) {
   return new Promise((resolve) => {
     let out = "";
-    const p = spawn("curl", ["-sL", "--max-time", String(Math.ceil(ms / 1000)), "-A", UA_CURL, "--", url], { stdio: ["ignore", "pipe", "ignore"] });
+    const p = spawn("curl", ["-sL", "--max-time", String(Math.ceil(ms / 1000)), "-A", UA_CURL, ...CURL_HEADER, "--", url], { stdio: ["ignore", "pipe", "ignore"] });
     p.stdout.on("data", (d) => { out += d; });
     p.on("error", () => resolve(null));
     p.on("close", (code) => resolve(code === 0 && out ? out : null));
@@ -71,13 +77,23 @@ function curlBuf(url, ms = 60_000) {
   return new Promise((resolve) => {
     const parts = [];
     let n = 0;
-    const p = spawn("curl", ["-sL", "--max-time", String(Math.ceil(ms / 1000)), "--max-filesize", String(25 * 1024 * 1024), "-A", UA_CURL, "--", url], { stdio: ["ignore", "pipe", "ignore"] });
+    const p = spawn("curl", ["-sL", "--max-time", String(Math.ceil(ms / 1000)), "--max-filesize", String(25 * 1024 * 1024), "-A", UA_CURL, ...CURL_HEADER, "--", url], { stdio: ["ignore", "pipe", "ignore"] });
     p.stdout.on("data", (d) => { n += d.length; parts.push(d); });
     p.on("error", () => resolve(null));
     p.on("close", (code) => resolve(code === 0 && n ? Buffer.concat(parts) : null));
   });
 }
 const UA_CURL = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36";
+/**
+ * Header như trình duyệt thật cho trang chi tiết + PDF của cổng nhà nước. Đo 2026-11-13 từ máy GPU: gialai.gov.vn (F5)
+ * trả 200 + "Request Rejected" 245 byte khi thiếu `accept-language` thật (Node fetch gửi `*`), đủ header ⇒ trang 119 KB.
+ */
+const HEADER_TRANG = {
+  "user-agent": UA_CURL,
+  accept: "text/html,application/xhtml+xml,application/xml;q=0.9,application/pdf,*/*;q=0.8",
+  "accept-language": "vi-VN,vi;q=0.9,en-US;q=0.6,en;q=0.5",
+};
+const CURL_HEADER = ["-H", `Accept: ${HEADER_TRANG.accept}`, "-H", `Accept-Language: ${HEADER_TRANG["accept-language"]}`];
 const loiGiaoThuc = (e) => /HTTP\/1\.1 protocol|Parse Error|HPE_/i.test(`${e?.message ?? ""} ${e?.cause?.message ?? ""} ${e?.cause?.code ?? ""}`);
 
 /**
@@ -150,7 +166,7 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 /** fetch có đồng hồ — không bao giờ ném (null khi hỏng). */
 async function layChu(url, init = {}, ms = 8_000) {
   try {
-    const r = await fetch(url, { ...init, headers: { "user-agent": UA, ...(init.headers ?? {}) }, redirect: "follow", signal: AbortSignal.timeout(ms) });
+    const r = await fetch(url, { ...init, headers: { ...HEADER_TRANG, "user-agent": UA, ...(init.headers ?? {}) }, redirect: "follow", signal: AbortSignal.timeout(ms) });
     return r.ok ? await r.text() : null;
   } catch (e) {
     return loiGiaoThuc(e) ? curlChu(url, ms) : null;
@@ -189,7 +205,7 @@ async function docDongTuPdf(url) {
   try {
     let buf;
     try {
-      const r = await fetch(url, { headers: { "user-agent": UA }, redirect: "follow", signal: AbortSignal.timeout(60_000) });
+      const r = await fetch(url, { headers: { ...HEADER_TRANG, "user-agent": UA }, redirect: "follow", signal: AbortSignal.timeout(60_000) });
       if (!r.ok) return { rows: [], loi: `HTTP ${r.status}` };
       buf = Buffer.from(await r.arrayBuffer());
     } catch (e) {
@@ -293,6 +309,8 @@ async function main() {
   /** dòng danh sách đọc từ PDF, gửi ở bước 5b (sau /nhap) — kèm hàng đợi file lượt trước */
   const dongFile = path.join(c.stateDir, "cho-gui-dong.json");
   const dongChoGui = dry ? [] : docJson(dongFile, []).filter((x) => x && typeof x.postUrl === "string").slice(-50);
+  /** link bài gov đọc trang chi tiết hỏng/bị chặn lượt này ⇒ hàng vớt (bước 5a) */
+  const hongChiTiet = [];
   // 2c. Bài gov: tải trang chi tiết lấy mô tả + ngày ban hành + FILE ĐÍNH KÈM (chinh-sach.docBaiGov). Hỏng ⇒ giữ như cũ
   //     (tiêu đề + mô tả RSS nếu có), không chặn lượt. Bài không có ngày lấy được ⇒ coi là mới (chonBai đã qua).
   if (!dry || process.argv.includes("--goc")) {
@@ -301,7 +319,11 @@ async function main() {
     let duoc = 0;
     await chayLo(gov, 4, async (b) => {
       const html = await layChu(b.url, {}, 12_000);
-      if (!html) return;
+      // hỏng mạng HOẶC trang chặn của tường lửa (200 + "Request Rejected") ⇒ bài vẫn gửi, xếp hàng vớt file lượt sau
+      if (!html || laTrangChan(html)) {
+        hongChiTiet.push(b.url);
+        return;
+      }
       const g = docBaiGov(html, b.url);
       if ([...g.description].length > [...b.description].length) b.description = g.description;
       if (!b.publishedAt && g.publishedAt) b.publishedAt = g.publishedAt;
@@ -309,7 +331,7 @@ async function main() {
       if (g.attachments.length) b.attachments = g.attachments;
       duoc++;
     });
-    if (gov.length) log(`[gov] ${duoc}/${gov.length} thông báo đọc được trang chi tiết · ${gov.filter((b) => b.attachments?.length).length} có file đính kèm`);
+    if (gov.length) log(`[gov] ${duoc}/${gov.length} thông báo đọc được trang chi tiết · ${gov.filter((b) => b.attachments?.length).length} có file đính kèm${hongChiTiet.length ? ` · ${hongChiTiet.length} bị chặn/hỏng ⇒ hàng vớt` : ""}`);
     // ngày ban hành đọc từ trang chi tiết có thể trước 2026 (danh mục xếp theo ngày đăng web) ⇒ bỏ như quaCu;
     // nguồn docTruoc (tiêu đề chỉ có số hiệu) ⇒ GIỜ mới lọc chuyện bà con trên tiêu đề + mô tả trang chi tiết
     const docTruoc = new Set(nguon.filter((n) => n.docTruoc).map((n) => n.id));
@@ -409,6 +431,50 @@ async function main() {
     loiGui = true;
     break;
   } while (hangDoi.length);
+
+  // 5a. VỚT FILE ĐÍNH KÈM (chinh-sach.gopHangVot/ganDinhKem, 2026-11-13): bài gov đã vào kho mà trang chi tiết bị chặn
+  //     ⇒ đọc lại trang; có file ⇒ PUT { postUrl, dinhKem } (máy chủ chỉ gắn khi bài còn trống file) rồi đọc PDF như 2d.
+  //     Vẫn chặn/hỏng mạng/bài chưa vào kho (404) ⇒ để lượt sau (≤14 ngày); trang đọc được mà không file ⇒ bỏ khỏi hàng.
+  const votFile = path.join(c.stateDir, "cho-vot-dinh-kem.json");
+  let hangVot = gopHangVot(docJson(votFile, []), [...hongChiTiet, ...themVot], now);
+  const votLuotNay = hangVot.slice(0, VOT_MOI_LUOT);
+  const xongVot = new Set();
+  for (const v of votLuotNay) {
+    v.thu = now;
+    const html = await layChu(v.postUrl, {}, 15_000);
+    if (!html || laTrangChan(html)) {
+      log(`[vớt] vẫn bị chặn/hỏng — để lượt sau: ${v.postUrl}`);
+      continue;
+    }
+    const g = docBaiGov(html, v.postUrl);
+    if (!g.attachments.length) {
+      log(`[vớt] trang không có file đính kèm — bỏ khỏi hàng: ${v.postUrl}`);
+      xongVot.add(v.postUrl);
+      continue;
+    }
+    const r = await goiApi(c, "/api/kairos/dinh-kem", { method: "PUT", body: { postUrl: v.postUrl, dinhKem: g.attachments }, timeoutMs: 30_000 });
+    if (r.status === 404 || (!r.ok && r.status !== 400)) {
+      log(`[vớt] máy chủ chưa nhận (${r.status || r.error}) — để lượt sau: ${v.postUrl}`);
+      continue;
+    }
+    xongVot.add(v.postUrl);
+    if (!r.ok) {
+      log(`[vớt] máy chủ từ chối (400 ${r.json?.error ?? ""}) — bỏ: ${v.postUrl}`);
+      continue;
+    }
+    log(`[vớt] gắn ${r.json.gan} file cho bài (${g.attachments.length} đọc được): ${v.postUrl}`);
+    for (const a of g.attachments.filter((x) => /\.pdf(?:[?#]|$)/i.test(x.url)).slice(0, 3)) {
+      const { rows, loi } = await docDongTuPdf(a.url);
+      if (loi) log(`[dòng] ${a.url}: ${loi}`);
+      else if (rows.length) {
+        log(`[dòng] ${a.title}: ${rows.length} dòng tàu`);
+        dongChoGui.push({ postUrl: v.postUrl, url: a.url, rows });
+      }
+    }
+  }
+  hangVot = hangVot.filter((v) => !xongVot.has(v.postUrl));
+  ghiJson(votFile, hangVot);
+  if (votLuotNay.length) log(`[vớt] xong ${xongVot.size}/${votLuotNay.length} · còn ${hangVot.length} bài trong hàng`);
 
   // 5b. Dòng danh sách ⇒ PUT /api/kairos/dinh-kem (bài phải đã vào kho). 404 (bài còn ở hàng đợi / bị loại) hoặc hỏng mạng
   //     ⇒ giữ lại gửi lượt sau; 400 (gói sai / file không thuộc bài) ⇒ bỏ.
