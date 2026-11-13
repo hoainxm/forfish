@@ -50,6 +50,7 @@ import {
 import { isShellReady } from "@/lib/shell-ready";
 import { loadPlaces } from "@/lib/places";
 import { readToken } from "@/lib/device-token-store";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { savedFishMark } from "@/lib/fish-forecast-client";
 import { useFeatureAccess } from "@/lib/use-tier";
 import { NHAN } from "@/lib/labels";
@@ -185,7 +186,8 @@ function runAutoPretrip(force = false) {
   setSharedPhase("loading");
   // nền bản đồ ~14 MB: SW tự kéo một lần rồi giữ; đã có / mất sóng / chưa tài khoản thì không làm gì. Không chờ, không ném.
   void warmBasemap();
-  runPretrip(currentPoints())
+  // khách (máy chủ có cổng mà máy chưa có chuỗi) ⇒ chỉ tải phần khách được xem; demo (không cổng) vẫn tải đủ
+  runPretrip(currentPoints(), undefined, { khach: isSupabaseConfigured() && !readToken() })
     .then((r) => {
       // CHỈ ghi mốc khi mẻ này thật sự giữ được gì (hoặc máy hết chỗ — thử
       // lại cũng vô ích). Ghi vô điều kiện là khoá 6 giờ ngay cả khi hỏng

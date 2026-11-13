@@ -242,6 +242,12 @@ describe("pretripSteps", () => {
       1 + PRETRIP_GRID_DAYS.length + EXTRA + 1,
     );
   });
+
+  // soát 2026-11-10: khách mở app là bắn ~50 request lớp gói bị 401 — nay chỉ còn việc khách được xem
+  it("khách (chưa có chuỗi) → chỉ tin bão + giá, kể cả có chỗ ghim", () => {
+    const steps = pretripSteps([{ lat: 8.68, lon: 106.6, name: "Cảng nhà" }], { khach: true });
+    expect(steps.map((s) => s.label)).toEqual(["Tin bão", "Giá cá, giá dầu"]);
+  });
 });
 
 describe("savedSummary — 'trong máy đang có gì'", () => {
