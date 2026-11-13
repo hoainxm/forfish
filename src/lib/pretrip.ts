@@ -677,10 +677,21 @@ export function dedupePoints(points: PretripPoint[]): PretripPoint[] {
   return out;
 }
 
+export interface PretripStepsOpts {
+  /**
+   * Máy CHƯA có chuỗi tài khoản (khách) — chỉ giữ việc khách được xem (tin bão, giá cá/giá dầu,
+   * `lib/data-route-rules.ts`). Mọi lớp còn lại máy chủ trả 401 cho khách: trước đây (soát 2026-11-10) mỗi lần
+   * mở app / quay lại app khách vẫn bắn ~50 request bị 401 — tốn sóng yếu, không giữ được gì. Không ảnh hưởng
+   * cửa 6 giờ: mẻ khách không có lớp lõi nên không bao giờ ghi mốc (shouldMarkPretripRun), đăng nhập xong mẻ đủ
+   * chạy ngay lượt sau.
+   */
+  khach?: boolean;
+}
+
 /** Dựng danh sách việc — tách riêng để test được thứ tự/số việc, không gọi mạng. */
-export function pretripSteps(points: PretripPoint[]): PretripStep[] {
+export function pretripSteps(points: PretripPoint[], opts: PretripStepsOpts = {}): PretripStep[] {
   const steps: PretripStep[] = [];
-  for (const p of dedupePoints(points)) {
+  for (const p of opts.khach ? [] : dedupePoints(points)) {
     steps.push({
       label: `Gió sóng — ${p.name}`,
       run: async () => {
@@ -707,6 +718,7 @@ export function pretripSteps(points: PretripPoint[]): PretripStep[] {
       await Promise.allSettled([fetchLivePrices(), fetchFuelPrice()]);
     },
   });
+  if (opts.khach) return steps;
   steps.push({
     label: "Bản đồ cá",
     run: async () => {
@@ -896,8 +908,9 @@ export async function runStepsPooled(
 export async function runPretrip(
   points: PretripPoint[],
   onProgress?: (p: PretripProgress) => void,
+  opts: PretripStepsOpts = {},
 ): Promise<PretripResult> {
-  const steps = pretripSteps(points);
+  const steps = pretripSteps(points, opts);
   const total = steps.length;
   const startedAt = Date.now();
   // PHẠM VI ĐẾM RIÊNG CHO MẺ NÀY: chỉ bản do CHÍNH mẻ này ghi mới được tính.
