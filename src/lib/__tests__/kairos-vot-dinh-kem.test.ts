@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -19,7 +19,9 @@ vi.stubEnv("MARKET_STORE", "file");
 vi.stubEnv("VERCEL", "");
 vi.stubEnv("KAIROS_INGEST_KEY", "");
 
-import { ganDinhKem, gopHangVot, laTrangChan, VOT_GIU_MS, VOT_TOI_DA } from "@/lib/kairos/chinh-sach.mjs";
+import {
+  dieuKienTra, docDongDanhSach, ganDinhKem, gopHangVot, kiemDongDanhSach, laTrangChan, loiReg, VOT_GIU_MS, VOT_TOI_DA,
+} from "@/lib/kairos/chinh-sach.mjs";
 import { urlHash } from "@/lib/kairos/lien-ket.mjs";
 import { createKairosFileStore } from "@/lib/kairos/file-store";
 import type { KairosStore } from "@/lib/kairos/store";
@@ -146,5 +148,42 @@ describe("PUT /api/kairos/dinh-kem — vớt file rồi gửi dòng", () => {
     const r = await put({ postUrl: BAI, dinhKem: [{ title: "Khác (PDF)", url: "https://gialai.gov.vn/upload/khac.pdf" }] });
     expect(await r.json()).toMatchObject({ ok: true, gan: 0 });
     expect((await store.postByUrlHash(urlHash(BAI)!))?.attachments).toEqual([QD, PL]);
+  });
+});
+
+describe("docDongDanhSach — bảng ô nhiều dòng (QĐ 4475 Gia Lai đợt 06/2026, chữ pdftotext -layout thật)", () => {
+  // tên nằm trên + dưới dòng STT, số đăng ký tách "GL-" / "83050-TS", 2 trang — cách đọc theo dòng STT cũ ra 0 dòng
+  const text = readFileSync(path.join(__dirname, "fixtures/kairos-pl-4475-gia-lai-dot06-2026.txt"), "utf8");
+  const rows = docDongDanhSach(text);
+  it("đủ 20 tàu, STT 1→20, trang 1 và 2", () => {
+    expect(rows.map((r) => r.stt)).toEqual(Array.from({ length: 20 }, (_, i) => i + 1));
+    expect(rows.filter((r) => r.page === 2).map((r) => r.stt)).toEqual([15, 16, 17, 18, 19, 20]);
+  });
+  it("ghép số đăng ký tách dòng + tên hai dòng", () => {
+    expect(rows[0]).toMatchObject({ reg: "GL-83050-TS", ten: "Phạm Hùng Vương" });
+    expect(rows[6]).toMatchObject({ reg: "GL-99341-TS", ten: "Trần Thị Ái Hằng" });
+    expect(rows[16]).toMatchObject({ reg: "GL-96785-TS", ten: "Trịnh Văn Nhơn" });
+    expect(rows[19]).toMatchObject({ reg: "GL-99377-TS", ten: "Trần Hữu Nghị" });
+    expect(rows[0].noiDung).toContain("Cát Tiến");
+    expect(rows[0].noiDung).toContain("740");
+  });
+  it("dòng qua được máy chủ (kiemDongDanhSach) và tra theo lõi số", () => {
+    const k = kiemDongDanhSach(rows);
+    expect(k).toHaveLength(20);
+    expect(k[4].regNorm).toBe("GL99338TS");
+    const dk = dieuKienTra("BĐ-99338-TS");
+    const loi = dk && "regNorm" in dk ? dk.regNorm : "";
+    expect(k.filter((r) => r.regNorm.includes(loi)).map((r) => r.reg)).toEqual(["GL-99338-TS"]);
+  });
+});
+
+describe("loiReg / dieuKienTra — số đăng ký so theo lõi số (sáp nhập BĐ ⇒ GL)", () => {
+  it("chữ tỉnh cũ, gạch, khoảng trắng đều ra cùng lõi số", () => {
+    expect(loiReg("BĐ-99338-TS")).toBe("99338");
+    expect(loiReg("gl 99338 ts")).toBe("99338");
+    expect(loiReg("99338")).toBe("99338");
+    expect(loiReg("Trần Văn")).toBe("");
+    expect(dieuKienTra("BĐ-99338-TS")).toEqual({ regNorm: "99338" });
+    expect(dieuKienTra("Trần Hữu Nghị")).toEqual({ tenNorm: "tran huu nghi" });
   });
 });

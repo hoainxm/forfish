@@ -172,6 +172,17 @@ async function layChu(url, init = {}, ms = 8_000) {
     return loiGiaoThuc(e) ? curlChu(url, ms) : null;
   }
 }
+/**
+ * Trang chi tiết văn bản gov: fetch; trang chặn của tường lửa ⇒ thử lại bằng curl. Đo 2026-11-13 từ máy GPU:
+ * gialai.gov.vn chặn Node fetch kể cả đủ header (tường lửa nhận ra trình khách), curl cùng header thì qua.
+ * Vẫn chặn/hỏng ⇒ null (bài vào hàng vớt).
+ */
+async function layTrangGov(url, ms) {
+  const html = await layChu(url, {}, ms);
+  if (html && !laTrangChan(html)) return html;
+  const c = await curlChu(url, ms);
+  return c && !laTrangChan(c) ? c : null;
+}
 /** Link Google News ⇒ { url bài gốc, ảnh, mô tả } (thu-core: idTuLinkGN · khoaTrangGN · thanGarturl · docGarturl · docOg). */
 async function baiGoc(linkGN) {
   const id = idTuLinkGN(linkGN);
@@ -208,6 +219,8 @@ async function docDongTuPdf(url) {
       const r = await fetch(url, { headers: { ...HEADER_TRANG, "user-agent": UA }, redirect: "follow", signal: AbortSignal.timeout(60_000) });
       if (!r.ok) return { rows: [], loi: `HTTP ${r.status}` };
       buf = Buffer.from(await r.arrayBuffer());
+      // tường lửa trả 200 + trang HTML "Request Rejected" thay cho PDF ⇒ thử curl (xem layTrangGov)
+      if (buf.subarray(0, 5).toString() !== "%PDF-") buf = (await curlBuf(url)) ?? buf;
     } catch (e) {
       if (!loiGiaoThuc(e)) throw e;
       buf = await curlBuf(url); // cổng header sai chuẩn (mae.gov.vn) — xem curlChu
@@ -318,9 +331,9 @@ async function main() {
     const gov = chon.filter((b) => laGov(b) && !b.attachments?.length);
     let duoc = 0;
     await chayLo(gov, 4, async (b) => {
-      const html = await layChu(b.url, {}, 12_000);
+      const html = await layTrangGov(b.url, 12_000);
       // hỏng mạng HOẶC trang chặn của tường lửa (200 + "Request Rejected") ⇒ bài vẫn gửi, xếp hàng vớt file lượt sau
-      if (!html || laTrangChan(html)) {
+      if (!html) {
         hongChiTiet.push(b.url);
         return;
       }
@@ -441,8 +454,8 @@ async function main() {
   const xongVot = new Set();
   for (const v of votLuotNay) {
     v.thu = now;
-    const html = await layChu(v.postUrl, {}, 15_000);
-    if (!html || laTrangChan(html)) {
+    const html = await layTrangGov(v.postUrl, 15_000);
+    if (!html) {
       log(`[vớt] vẫn bị chặn/hỏng — để lượt sau: ${v.postUrl}`);
       continue;
     }

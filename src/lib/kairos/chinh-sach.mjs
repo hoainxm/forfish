@@ -527,6 +527,16 @@ export function laReg(q) {
   return /\d{4}/.test(chuanReg(q));
 }
 
+/**
+ * Lõi SỐ của số đăng ký để tra (dãy ≥4 số liền đầu tiên): "BĐ-99338-TS" ⇒ "99338". Tra theo lõi số vì sáp nhập tỉnh
+ * 2025 đổi chữ tỉnh (Bình Định BĐ ⇒ Gia Lai GL, danh sách đợt 06/2026 ghi "GL-99338-TS") mà bà con vẫn gõ theo giấy cũ
+ * (bà con Bình Định báo 13/11 "gõ mã tàu ko tìm được"). Không có ⇒ "".
+ * @param {string} s
+ */
+export function loiReg(s) {
+  return /\d{4,}/.exec(chuanReg(s))?.[0] ?? "";
+}
+
 const CCCD_RE = /\b(\d{3})\d{6}(\d{3})\b/g;
 const STT_RE = /^\s*(\d{1,4})\s+(\S.*)$/;
 const MUC_RE = /^\s*(?:[IVX]{1,5}|[A-Z])\s{2,}\S/;
@@ -537,11 +547,100 @@ const IN_HOA_RE = /^\s*(?=.*\p{Lu}.*\p{Lu}.*\p{Lu})[^\p{Ll}]{12,}$/u;
 
 /**
  * Chữ `pdftotext -layout` ⇒ dòng tàu [{stt, ten, reg, noiDung, page}]. Dòng không có số đăng ký bị bỏ (tổng, mục).
- * Không ném; chữ rỗng ⇒ [].
+ * Hai cách đọc, lấy cách ra NHIỀU dòng hơn: theo dòng STT (`docTheoDongStt` — mẫu Gia Lai 2024–2025, mỗi STT một
+ * dòng) và theo khối (`docTheoKhoi` — mẫu QĐ 4475 đợt 06/2026: ô nhiều dòng, tên nằm trên + dưới dòng STT, số đăng
+ * ký tách "GL-" / "83050-TS"). Không ném; chữ rỗng ⇒ [].
  * @param {string} text
  * @param {number} [toiDa]
  */
 export function docDongDanhSach(text, toiDa = DONG_TOI_DA) {
+  const a = docTheoDongStt(text, toiDa);
+  const b = docTheoKhoi(text, toiDa);
+  return b.length > a.length ? b : a;
+}
+
+/** Ô của một dòng -layout (chữ cách nhau ≥2 khoảng trắng) kèm cột bắt đầu/kết thúc. */
+function oCuaDong(line) {
+  return [...line.matchAll(/\S+(?: \S+)*/g)].map((m) => ({ s: m.index ?? 0, e: (m.index ?? 0) + m[0].length, t: m[0] }));
+}
+
+/** Dòng STT của bảng ô nhiều dòng: số ở sát lề trái, còn ô khác không phải toàn số (hàng đánh số cột "1 2 3 4"). */
+const STT_KHOI_RE = /^\s{0,3}(\d{1,4})(?:\s{2,}|$)/;
+
+/**
+ * Đọc theo KHỐI (14 §21b, 2026-11-13 — QĐ 4475 Gia Lai đợt 06/2026 ra 0 dòng với cách cũ): mỗi dòng STT (tăng dần
+ * 1, 2, 3…) là tâm một khối; ranh giới giữa hai khối là giữa hai dòng STT; khối đầu/cuối trang lấy đối xứng. Không
+ * vượt qua ngắt trang hay dòng chữ ký/tiêu đề (DUNG_RE). Trong khối, ô các dòng chồng cột lên nhau gộp thành một cột
+ * (đọc trên xuống) ⇒ số đăng ký ghép lại được, tên = cột chữ trái nhất.
+ * @param {string} text
+ * @param {number} toiDa
+ */
+function docTheoKhoi(text, toiDa) {
+  /** @type {{ l: string, page: number, chan: boolean }[]} */
+  const dong = [];
+  let page = 1;
+  for (const raw of String(text ?? "").split(/\r?\n/)) {
+    const line = raw.replace(/\t/g, "  ");
+    const ngat = line.includes("\f");
+    if (ngat) page += (line.match(/\f/g) ?? []).length;
+    const l = line.replace(/\f/g, "");
+    if (!l.trim() && !ngat) continue;
+    dong.push({ l, page, chan: ngat || DUNG_RE.test(l) || IN_HOA_RE.test(l) });
+  }
+  /** @type {number[]} */
+  const tam = [];
+  let sau = 0;
+  dong.forEach((d, i) => {
+    if (d.chan) return;
+    const m = STT_KHOI_RE.exec(d.l);
+    if (!m || Number(m[1]) !== sau + 1) return;
+    if (oCuaDong(d.l).every((o) => /^\(?\d+[.,]?\d*\)?$/.test(o.t))) return;
+    tam.push(i);
+    sau = Number(m[1]);
+  });
+  const out = [];
+  for (let k = 0; k < tam.length && out.length < toiDa; k++) {
+    const a = tam[k];
+    const cungTrangSau = k + 1 < tam.length && dong[tam[k + 1]].page === dong[a].page;
+    const cungTrangTruoc = k > 0 && dong[tam[k - 1]].page === dong[a].page;
+    let truoc = cungTrangTruoc ? a - (tam[k - 1] + Math.ceil((a - tam[k - 1]) / 2)) : -1;
+    let sauN = cungTrangSau ? Math.ceil((tam[k + 1] - a) / 2) - 1 : -1;
+    if (truoc < 0) truoc = Math.max(sauN, 0);
+    if (sauN < 0) sauN = truoc;
+    /** @type {number[]} */
+    const chiSo = [a];
+    for (let i = a - 1; i >= a - truoc && i >= 0 && !dong[i].chan; i--) chiSo.unshift(i);
+    for (let i = a + 1; i <= a + sauN && i < dong.length && !dong[i].chan; i++) chiSo.push(i);
+    // ô ⇒ cột: gộp ô các dòng có khoảng cột chồng nhau
+    const o = chiSo.flatMap((i, h) => oCuaDong(dong[i].l).map((x) => ({ ...x, h }))).sort((x, y) => x.s - y.s);
+    /** @type {{ s: number, e: number, o: typeof o }[]} */
+    const cot = [];
+    for (const x of o) {
+      const c = cot[cot.length - 1];
+      if (c && x.s < c.e) {
+        c.e = Math.max(c.e, x.e);
+        c.o.push(x);
+      } else cot.push({ s: x.s, e: x.e, o: [x] });
+    }
+    const chuCot = cot.map((c) => c.o.sort((x, y) => x.h - y.h || x.s - y.s).map((x) => x.t).join(" "));
+    const reg = chuCot.map((t) => REG_RE.exec(t)).find(Boolean);
+    if (!reg) continue;
+    const stt = Number(STT_KHOI_RE.exec(dong[a].l)?.[1] ?? 0);
+    const ten = (chuCot.find((t) => /\p{L}/u.test(t) && !REG_RE.test(t)) ?? "").replace(/^\d{1,4}\s+/, "").trim();
+    const chu = chuCot.join(" ").replace(/\s+/g, " ").trim().replace(CCCD_RE, "$1******$2");
+    out.push({
+      stt,
+      ten: [...ten].slice(0, DONG_TEN_TOI_DA).join(""),
+      reg: `${reg[1]}-${reg[2]}-TS`.replace(/^BD-/, "BĐ-"),
+      noiDung: [...chu].slice(0, DONG_NOI_DUNG_TOI_DA).join(""),
+      page: dong[a].page,
+    });
+  }
+  return out;
+}
+
+/** Đọc theo dòng STT (mẫu mỗi STT một dòng, dòng nối không STT gộp vào dòng trước). */
+function docTheoDongStt(text, toiDa) {
   const out = [];
   let page = 1;
   /** @type {{ stt: number, cells: string[], page: number } | null} */
@@ -624,7 +723,8 @@ export function kiemDongDanhSach(raw) {
 export function dieuKienTra(q) {
   const s = String(q ?? "").trim();
   if ([...s].length < 2 || s.length > 40) return null;
-  return laReg(s) ? { regNorm: chuanReg(s) } : { tenNorm: foldVi(s) };
+  // số đăng ký so theo LÕI SỐ (loiReg) — chữ tỉnh đổi sau sáp nhập, cột reg_norm tìm "chứa"
+  return laReg(s) ? { regNorm: loiReg(s) } : { tenNorm: foldVi(s) };
 }
 
 // ───────── LOẠI TIN của tab Chính sách (14 §21d, anh Long 2026-10-26: "cho loại lọc thêm loại tin (ví dụ tin dầu, tin hỗ

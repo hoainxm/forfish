@@ -1,12 +1,12 @@
 // GET /api/kairos/posts/[id]/tra?q=<chữ>&tau=<reg,reg> — TRA DANH SÁCH TRONG FILE ĐÍNH KÈM của một thông báo
 // (14 §21b, 0075; anh Long: "click tra cứu tên tàu hoặc chủ tàu để show luôn đoạn đó cho nhanh").
 //
-// Khách gọi được (trần đọc `readerOf`). `q` = số đăng ký (có ≥4 số ⇒ so cột reg_norm, chứa) hoặc tên chủ tàu (bỏ dấu,
+// Khách gọi được (trần đọc `readerOf`). `q` = số đăng ký (có ≥4 số ⇒ so LÕI SỐ trong cột reg_norm, chứa — 2026-11-13) hoặc tên chủ tàu (bỏ dấu,
 // chứa); `tau` = ≤5 số đăng ký tàu trong sổ của bà con để app tự so (không gửi gì khác về tàu). Trả ≤20 dòng
 // { stt, ten, reg, noiDung, page } + `co` = bài có dòng nào chưa (file chưa đọc được ⇒ false: thẻ nói "mở file xem").
 // q quá ngắn/dài và không có tau ⇒ rows rỗng, không quét.
 import { NextResponse } from "next/server";
-import { chuanReg, dieuKienTra } from "@/lib/kairos/chinh-sach.mjs";
+import { chuanReg, dieuKienTra, loiReg } from "@/lib/kairos/chinh-sach.mjs";
 import { kErr, kairosErrorResponse, readerOf, storeOr503 } from "@/lib/kairos/server";
 import { isUuid } from "@/lib/kairos/validate";
 
@@ -23,8 +23,10 @@ export async function GET(req: Request, ctx: Ctx) {
   const dk = dieuKienTra(sp.get("q") ?? "");
   const tau = (sp.get("tau") ?? "")
     .split(",")
-    .map((x) => chuanReg(x))
-    .filter((x) => x.length >= 6 && x.length <= 16)
+    .filter((x) => chuanReg(x).length >= 6 && chuanReg(x).length <= 16)
+    // so theo lõi số (chữ tỉnh đổi sau sáp nhập: BĐ ⇒ GL) — chinh-sach.loiReg
+    .map((x) => loiReg(x))
+    .filter((x) => x.length >= 4)
     .slice(0, TAU_TOI_DA);
   const s = await storeOr503();
   if (!s.ok) return s.res;
