@@ -6,7 +6,10 @@ Mỗi lần chạy (timer ais-kho, mỗi ngày; chạy lại bao nhiêu lần c�
   1. Đọc bản quét AIS MỚI ở ~/.local/forlife/tau-ais/luu (mỗi giờ một bản) ⇒ bảng
        may      một dòng / máy phát (SHIP_ID — khoá thật; MMSI KHÔNG làm khoá: 610 MMSI cờ VN dùng chung nhiều máy)
        ten      lịch sử TÊN GỐC (đã bỏ đuôi pin của phao) của từng máy: từ · đến · số lần
-       vet      điểm theo giờ (t = luc − ELAPSED) của máy cờ VN + mọi tàu cá (SHIPTYPE 2) mọi cờ
+       vet      điểm theo giờ (t = luc − ELAPSED) của máy cờ VN + mọi tàu cá (SHIPTYPE 2) mọi cờ + MỌI tàu khác có MMSI 9 số
+                (anh Long 13/11: "lưu cả tàu buôn"). Máy không MMSI ngoài nhóm VN/tàu cá bỏ: MarineTraffic đặt SHIP_ID mới gần
+                như mỗi lần thấy (đo 12/11: ~470 nghìn mã/ngày), không theo dõi được.
+       Nhận diện số ĐK, dò phao, trung chuyển CHỈ xét NHÓM GỐC (cờ VN / MMSI 574 / SHIPTYPE 2 — SQL NHOM_GOC) như trước 13/11.
   2. Sổ tàu VN (Data Lake vessels.ndjson) ⇒ so_tau (số đăng ký, dài, nghề, tỉnh — KHÔNG lấy chủ tàu/SĐT).
   3. Nhận diện ⇒ nhan_dien (ship_id → số đăng ký). Vị trí TÍCH LUỸ THEO NGÀY (tau_ngay, bang_chung — §3b):
        cach='ten'    tên máy có số đăng ký khớp sổ (mọi máy)
@@ -20,6 +23,8 @@ Mỗi lần chạy (timer ais-kho, mỗi ngày; chạy lại bao nhiêu lần c�
   python3 ais_kho.py --chi-khop chỉ tính lại nhận diện
   python3 ais_kho.py --lam-lai  xoá bằng chứng ngày + nhận diện vị trí rồi tính lại từ đầu (đổi luật)
   python3 ais_kho.py --chi-khop --ds-cao <tệp> [--ngan-sach 2000]   + ghi danh sách IMEI ĐẾN HẠN cào (lịch thông minh §4)
+  python3 ais_kho.py --bo-sung-tau-khac   đọc lại MỌI bản quét đã nạp, chỉ thêm máy NGOÀI nhóm gốc (chạy một lần sau 13/11; chạy lại
+                                          bị chặn bởi bảng meta để không cộng đôi so_lan)
   TRA: SELECT * FROM v_tau_ais WHERE reg = 'BD-97xxx'  — máy AIS đang dùng + vị trí mới nhất theo AIS (không cần S-Tracking)
 Mã thoát: 0 xong · 2 thiếu kho AIS.
 """
@@ -45,6 +50,17 @@ RE_DUOI = re.compile(r"^(?P<goc>.*?\D)\s*(?P<pin>\d{1,3})%?$")
 RE_PHAO = re.compile(r"\b(L\s?GHE|LGHE|LRE|LXU|LXN|RAP|LUOI|LBAO|DL|P\d{1,2}|B\d+F\d+)\b")
 
 log = lambda *a: print(time.strftime("%H:%M:%S"), *a, flush=True)
+
+# nhóm máy dùng cho nhận diện số ĐK / phao / trung chuyển — đúng tập kho giữ trước 13/11 (cờ VN, MMSI 574, tàu cá mọi cờ)
+# cờ nhom_goc ghi lúc nạp, giữ mãi (loai_ais theo bản quét mới nhất ⇒ máy từng là tàu cá có thể đổi loại; đo 13/11: 536 máy)
+NHOM_GOC = "m.nhom_goc = 1"
+
+
+def thuoc_nhom(mm, co, loai):
+    """'goc' = cờ VN / MMSI 574 / tàu cá · 'khac' = tàu khác có MMSI 9 số · None = bỏ (không MMSI, SHIP_ID không bền)."""
+    if co == "VN" or mm.startswith("574") or loai == 2:
+        return "goc"
+    return "khac" if len(mm) == 9 and mm.isdigit() else None
 
 
 def chuan(s):
@@ -96,6 +112,18 @@ def mo_db():
       ship_id TEXT, reg TEXT, cach TEXT, vai TEXT, diem REAL, gap INTEGER, d_tv REAL, tu TEXT, den TEXT, nguon TEXT, cap_nhat TEXT,
       PRIMARY KEY (ship_id, reg, cach, nguon)) WITHOUT ROWID;
     """)
+    if "nhom_goc" not in {r[1] for r in c.execute("PRAGMA table_info(may)")}:
+        # thêm 13/11. Kho có sẵn: máy nào có trong bản sao trước khi bổ sung (ais.db.truoc-1311) là nhóm gốc; kho mới tinh: rỗng
+        c.execute("ALTER TABLE may ADD COLUMN nhom_goc INTEGER DEFAULT 0")
+        cu = os.path.join(os.path.dirname(DB), "ais.db.truoc-1311")
+        if os.path.exists(cu):
+            c.execute("ATTACH DATABASE ? AS cu", (cu,))  # chỉ đọc bảng may
+            c.execute("UPDATE may SET nhom_goc = 1 WHERE ship_id IN (SELECT ship_id FROM cu.may)")
+            c.commit()
+            c.execute("DETACH DATABASE cu")
+        else:
+            c.execute("UPDATE may SET nhom_goc = 1")
+        c.commit()
     c.execute("DROP VIEW IF EXISTS v_may")
     c.execute("""CREATE VIEW v_may AS
       SELECT m.*, (SELECT ten_goc FROM ten WHERE ten.ship_id = m.ship_id ORDER BY den DESC LIMIT 1) AS ten_moi,
@@ -142,7 +170,7 @@ def nap_ban_quet(c):
     return moi
 
 
-def nap_mot(c, o):
+def nap_mot(c, o, chi_khac=False):
     luc = o["luc"]
     ts = datetime.fromisoformat(luc.replace("Z", "+00:00")).timestamp()
     may_rows, ten_rows, vet_rows = [], [], []
@@ -156,9 +184,9 @@ def nap_mot(c, o):
             loai = int(r.get("SHIPTYPE") or 0)
         except ValueError:
             loai = 0
-        vn = co == "VN" or mm.startswith("574")
-        if not (vn or loai == 2):
-            continue  # kho chỉ giữ máy cờ VN + tàu cá mọi cờ
+        nhom = thuoc_nhom(mm, co, loai)
+        if nhom is None or (chi_khac and nhom != "khac"):
+            continue
         try:
             la, lo = float(r["LAT"]), float(r["LON"])
             kn = int(r.get("SPEED") or 0) / 10
@@ -170,16 +198,16 @@ def nap_mot(c, o):
             dai = int(r.get("LENGTH")) if r.get("LENGTH") not in (None, "") else None
         except ValueError:
             huong, dai = None, None
-        may_rows.append((sid, mm or None, co or None, loai, dai, luc, luc, kn))
+        may_rows.append((sid, mm or None, co or None, loai, dai, luc, luc, kn, 1 if nhom == "goc" else 0))
         vet_rows.append((sid, t, la, lo, kn, huong))
         tt = chuan(r.get("SHIPNAME"))
         if tt and not re.fullmatch(r"\[.*\]", tt):
             ten_rows.append((sid, goc(tt), tt, luc, luc))
-    c.executemany("""INSERT INTO may (ship_id, mmsi, co, loai_ais, dai_ais, lan_dau, lan_cuoi, so_lan, toc_max) VALUES (?,?,?,?,?,?,?,1,?)
+    c.executemany("""INSERT INTO may (ship_id, mmsi, co, loai_ais, dai_ais, lan_dau, lan_cuoi, so_lan, toc_max, nhom_goc) VALUES (?,?,?,?,?,?,?,1,?,?)
       ON CONFLICT(ship_id) DO UPDATE SET mmsi = coalesce(excluded.mmsi, mmsi), co = coalesce(excluded.co, co),
         loai_ais = excluded.loai_ais, dai_ais = coalesce(excluded.dai_ais, dai_ais),
         lan_dau = min(lan_dau, excluded.lan_dau), lan_cuoi = max(lan_cuoi, excluded.lan_cuoi),
-        so_lan = so_lan + 1, toc_max = max(toc_max, excluded.toc_max)""", may_rows)
+        so_lan = so_lan + 1, toc_max = max(toc_max, excluded.toc_max), nhom_goc = max(nhom_goc, excluded.nhom_goc)""", may_rows)
     c.executemany("""INSERT INTO ten VALUES (?,?,?,?,?,1)
       ON CONFLICT(ship_id, ten_goc) DO UPDATE SET tu = min(tu, excluded.tu), den = max(den, excluded.den),
         ten_mau = CASE WHEN excluded.den > den THEN excluded.ten_mau ELSE ten_mau END, so_lan = so_lan + 1""", ten_rows)
@@ -217,9 +245,11 @@ def danh_dau_phao(c):
     c.execute("UPDATE may SET la_phao = 0")
     c.execute("CREATE TABLE IF NOT EXISTS do_nghe (ship_id TEXT PRIMARY KEY, nhom TEXT, la_phao INTEGER, ty_le_nhanh REAL)")
     c.execute("DELETE FROM do_nghe")
-    nhanh = {sid: (f, n) for sid, f, n in c.execute("SELECT ship_id, avg(kn >= 3), count(*) FROM vet GROUP BY ship_id")}
-    rows = c.execute("""SELECT m.ship_id, m.toc_max, group_concat(t.ten_goc, '|'), sum(t.ten_goc <> t.ten_mau)
-                        FROM may m JOIN ten t USING (ship_id) GROUP BY m.ship_id""").fetchall()
+    nhanh = {sid: (f, n) for sid, f, n in c.execute(
+        f"SELECT v.ship_id, avg(v.kn >= 3), count(*) FROM vet v JOIN may m USING (ship_id) WHERE {NHOM_GOC} GROUP BY v.ship_id")}
+    # tàu buôn tên đuôi số đậu neo lâu ("SEA MEADOW 22", 0 kn) sẽ dính luật đuôi pin ⇒ chỉ xét nhóm gốc
+    rows = c.execute(f"""SELECT m.ship_id, m.toc_max, group_concat(t.ten_goc, '|'), sum(t.ten_goc <> t.ten_mau)
+                        FROM may m JOIN ten t USING (ship_id) WHERE {NHOM_GOC} GROUP BY m.ship_id""").fetchall()
     phao, dn = [], []
     for sid, toc, tens, co_duoi in rows:
         tens = tens or ""
@@ -264,7 +294,7 @@ def khop_ten(c, now):
     phao = {r[0] for r in c.execute("SELECT ship_id FROM may WHERE la_phao = 1")}
     c.execute("DELETE FROM nhan_dien WHERE cach = 'ten'")
     out = []
-    for sid, ten_goc, tu, den in c.execute("SELECT ship_id, ten_goc, tu, den FROM ten").fetchall():
+    for sid, ten_goc, tu, den in c.execute(f"SELECT t.ship_id, t.ten_goc, t.tu, t.den FROM ten t JOIN may m USING (ship_id) WHERE {NHOM_GOC}").fetchall():
         for k in regs_trong_ten(ten_goc):
             if k in so:
                 out.append((sid, k, "ten", "phao" if sid in phao else "mang_so", 1.0, None, None, tu, den, "ten-ais", now))
@@ -637,6 +667,34 @@ def tao_view_tong(c):
     c.commit()
 
 
+def bo_sung_tau_khac(c):
+    """Một lần: bản quét đã nạp trước 13/11 bị lọc chỉ nhóm gốc ⇒ đọc lại, thêm máy nhóm 'khac'. Không đụng dòng nhóm gốc."""
+    c.execute("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
+    if c.execute("SELECT 1 FROM meta WHERE k = 'bo_sung_tau_khac'").fetchone():
+        log("đã bổ sung tàu khác trước đó — bỏ qua")
+        return 0
+    da = {r[0] for r in c.execute("SELECT luc FROM ban_quet")}
+    n = 0
+    for f in sorted(glob.glob(f"{LUU}/20*/*.ndjson.gz")):
+        try:
+            fh = gzip.open(f, "rt")
+            for line in fh:
+                try:
+                    o = json.loads(line)
+                except Exception:
+                    continue
+                if o.get("luc") in da:
+                    nap_mot(c, o, chi_khac=True)
+                    n += 1
+        except (OSError, EOFError):
+            pass  # tệp ngày đang ghi dở: phần chưa nạp sẽ vào ở lượt thường
+        c.commit()
+        log("bổ sung", os.path.basename(f), "· bản quét", n)
+    c.execute("INSERT INTO meta VALUES ('bo_sung_tau_khac', ?)", (datetime.now(timezone.utc).isoformat(),))
+    c.commit()
+    return n
+
+
 def main():
     chi_khop = "--chi-khop" in sys.argv
     if "--lam-lai" in sys.argv:  # so khớp lại TỪ ĐẦU (đổi luật phao 09/11): xoá bằng chứng ngày + nhận diện theo vị trí
@@ -647,6 +705,10 @@ def main():
         print("không thấy kho AIS", LUU, file=sys.stderr)
         return 2
     c = mo_db()
+    if "--bo-sung-tau-khac" in sys.argv:
+        log("bổ sung tàu khác:", bo_sung_tau_khac(c), "bản quét")
+        c.close()
+        return 0
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M")
     if not chi_khop:
         n = nap_ban_quet(c)

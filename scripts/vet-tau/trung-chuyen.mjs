@@ -62,7 +62,8 @@ const nhan = new Map(); // ship_id → reg_khoa (máy trên tàu)
 for (const r of db.prepare("SELECT ship_id, reg FROM nhan_dien WHERE cach = 'vi_tri' AND vai = 'tren_tau'").all()) nhan.set(r.ship_id, r.reg);
 const rieng = new Map(); // ship_id → {ten, co, loai}  (máy chưa nhận, không phao, có lúc chạy ≥ 2 kn)
 for (const r of db.prepare(`SELECT m.ship_id, m.co, m.loai_ais, (SELECT ten_goc FROM ten t WHERE t.ship_id = m.ship_id ORDER BY den DESC LIMIT 1) AS ten
-                            FROM may m WHERE m.la_phao = 0 AND m.toc_max >= 2`).all())
+                            FROM may m WHERE m.la_phao = 0 AND m.toc_max >= 2
+                              AND (m.co = 'VN' OR m.mmsi LIKE '574%' OR m.loai_ais = 2)`).all()) // nhóm gốc như trước 13/11 (kho nay có cả tàu buôn)
   if (!nhan.has(r.ship_id)) rieng.set(r.ship_id, { ten: r.ten, co: r.co, loai: r.loai_ais });
 const ungVien = new Set(); // "ship_id|reg_khoa" từng là ứng viên so khớp ⇒ có thể là một tàu
 for (const r of db.prepare("SELECT ship_id, reg FROM bang_chung GROUP BY ship_id, reg HAVING sum(gap) >= 3").all()) ungVien.add(r.ship_id + "|" + r.reg);
