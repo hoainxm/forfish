@@ -41,6 +41,11 @@ on:
         required: true
         default: true
         type: boolean
+      senBienGemma:
+        description: "Kèm Gemma Sen Biển (LiteRT + gói 62 MB). ⚠ Play LOẠI MỌI MÁY 32-BIT. Chỉ bật khi ADR 0012 đã duyệt phát hành."
+        required: false
+        default: false
+        type: boolean
   push:
     tags: ["v*.*.*"]
 
@@ -139,23 +144,21 @@ jobs:
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           EOF
 
-      # Gemma của Sen Biển (ADR 0012): 62 MB, KHÔNG vào git — lấy từ GitHub Release của chính repo rồi
-      # kiểm SHA-256 (android/sen-bien-gemma/gemma.sha256). Không có release/sai hash ⇒ CẢNH BÁO và build
-      # bản KHÔNG có Gemma (app.gradle chỉ gắn gói khi có file) — không chặn phát hành.
+      # Gemma của Sen Biển (ADR 0012): CHỈ khi ô `senBienGemma` bật (mặc định TẮT, tag cũng tắt — 2026-11-13).
+      # Lý do tắt: LiteRT-LM chỉ có .so 64-bit ⇒ bản kèm nó bị Play loại mọi máy 32-bit (1.0.4: −19.575 loại máy).
+      # Bật ⇒ tải mô hình 62 MB từ GitHub Release của chính repo + kiểm SHA-256 (android/sen-bien-gemma/gemma.sha256);
+      # thiếu release / sai hash ⇒ DỪNG (đã bật mà ra bản không Gemma là sai ý người chạy). Tắt ⇒ Gradle bỏ liblitertlm*.so.
       - name: Tải mô hình Gemma cho gói Play on-demand
+        if: ${{ inputs.senBienGemma }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           D=android/sen-bien-gemma/src/main/assets/sen-bien
-          if gh release download sen-bien-gemma-v2 --repo "${{ github.repository }}" -p gemma.litertlm -D "$D" --clobber; then
-            if (cd "$D" && sha256sum -c ../../../../gemma.sha256); then
-              echo "Gemma: $(du -h "$D/gemma.litertlm" | cut -f1) — gắn gói senbiengemma"
-            else
-              echo "::warning::Gemma sai SHA-256 — bỏ, build không có Gemma"; rm -f "$D/gemma.litertlm"
-            fi
-          else
-            echo "::warning::Chưa có release sen-bien-gemma-v2 — build không có Gemma (Sen Biển chạy n-gram + luật)"
-          fi
+          gh release download sen-bien-gemma-v2 --repo "${{ github.repository }}" -p gemma.litertlm -D "$D" --clobber \
+            || { echo "::error::Chưa có release sen-bien-gemma-v2 — bỏ tick senBienGemma để build bản không Gemma"; exit 1; }
+          (cd "$D" && sha256sum -c ../../../../gemma.sha256) \
+            || { echo "::error::Gemma sai SHA-256"; rm -f "$D/gemma.litertlm"; exit 1; }
+          echo "Gemma: $(du -h "$D/gemma.litertlm" | cut -f1) — gắn gói senbiengemma"
 
       - name: Build AAB đã ký
         working-directory: android
@@ -163,6 +166,7 @@ jobs:
           chmod +x ./gradlew
           ./gradlew --no-daemon bundleRelease \
             ${APP_VERSION_CODE:+-PappVersionCode=$APP_VERSION_CODE} \
+            ${{ inputs.senBienGemma && '-PsenBienGemma=true' || '' }} \
             ${{ steps.ver.outputs.name && format('-PappVersionName={0}', steps.ver.outputs.name) || '' }}
 
       - name: Lưu AAB làm artifact
@@ -184,5 +188,6 @@ jobs:
           fi
           ./gradlew --no-daemon publishReleaseBundle \
             ${APP_VERSION_CODE:+-PappVersionCode=$APP_VERSION_CODE} \
+            ${{ inputs.senBienGemma && '-PsenBienGemma=true' || '' }} \
             ${{ steps.ver.outputs.name && format('-PappVersionName={0}', steps.ver.outputs.name) || '' }} \
             -PplayTrack=${{ inputs.track || 'internal' }}

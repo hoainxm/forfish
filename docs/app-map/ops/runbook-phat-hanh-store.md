@@ -136,7 +136,8 @@ curl -s https://sdfish.sdvico.vn/quyen-rieng-tu | grep "quyền riêng tư"
 
 **4) Bump version** (mỗi lần nộp store BẮT BUỘC tăng):
 - **Android**: sửa `android/app/build.gradle` — `versionCode` = số đang có trên Play **+ 1** (xem Play Console → App bundle explorer), `versionName` mới — rồi commit. Build tay và CI đều đọc từ đây.
-  ⚠ KHÔNG dùng số theo giờ (`$(date -u +%y%j%H%M)`): Play chặn đỏ "version code is significantly higher…" (dính 13/11/2026, bản 263170430 nhảy từ 4). Bản 13/11: `5` / `1.0.4`.
+  ⚠ KHÔNG dùng số theo giờ (`$(date -u +%y%j%H%M)`): Play chặn đỏ "version code is significantly higher…" (dính 13/11/2026, bản 263170430 nhảy từ 4). Bản 13/11: `6` / `1.0.4` (5 đã dùng trên Play).
+  ⚠ Play báo **"no longer supports N devices"** ⇒ DỪNG, đừng submit: thường là AAB lỡ kèm thư viện LiteRT (chỉ 64-bit). Bản phát hành build KHÔNG có cờ `-PsenBienGemma=true` (native-deploy §3c, ADR 0012).
 - **iOS**: trong Xcode → target App → General → **Build** tăng lên số lớn hơn lần upload gần nhất
   (bản `1.0 (1)` đã dùng → nộp lần sau dùng **build ≥ 2**), giữ **Version = 1.0**.
 

@@ -32,10 +32,10 @@ Còn lại phải làm **trong App Store Connect / Play Console** (không phải
 
 | Nền tảng | File | Hiện tại | Đổi thành |
 |---|---|---|---|
-| Android | `android/app/build.gradle` | `versionCode 5` / `versionName "1.0.4"` (13/11/2026) | **số trên Play + 1** / versionName mới — xem quy tắc dưới |
+| Android | `android/app/build.gradle` | `versionCode 6` / `versionName "1.0.4"` (13/11/2026; số 5 đã dùng trên Play) | **số trên Play + 1** / versionName mới — xem quy tắc dưới |
 | iOS | Xcode target (General) hoặc `ios/App/App.xcodeproj` | build 1, ver 1.0 | giữ ver **1.0**, tăng **build → số kế tiếp** (mỗi lần nộp phải tăng) |
 
-> Play **bắt buộc** `versionCode` tăng mỗi bản. Android: **Version code tăng ĐÚNG 1 mỗi bản**, ghi ở `android/app/build.gradle` (nguồn duy nhất — build tay và CI đều đọc), commit cùng bản phát hành. Bản 13/11/2026: `versionCode 5` / `1.0.4`. ⚠ KHÔNG sinh số theo giờ (`%y%j%H%M`, bỏ 13/11): Play Console CHẶN ĐỎ bản `263170430` nhảy từ `4` ("version code is significantly higher than your previous version code").
+> Play **bắt buộc** `versionCode` tăng mỗi bản. Android: **Version code tăng ĐÚNG 1 mỗi bản**, ghi ở `android/app/build.gradle` (nguồn duy nhất — build tay và CI đều đọc), commit cùng bản phát hành. Bản 13/11/2026: `versionCode 6` / `1.0.4` (5 đã dùng trên Play). **Máy được hỗ trợ**: bản phát hành KHÔNG kèm Gemma (cờ `senBienGemma` tắt — xem native-deploy §3c); Play báo "no longer supports N devices" ⇒ dừng, soi thư viện native trong AAB (`unzip -l app-release.aab | grep /lib/`). ⚠ KHÔNG sinh số theo giờ (`%y%j%H%M`, bỏ 13/11): Play Console CHẶN ĐỎ bản `263170430` nhảy từ `4` ("version code is significantly higher than your previous version code").
 >
 > App Store **bắt buộc** build number tăng mỗi lần upload (kể cả cùng version string).
 

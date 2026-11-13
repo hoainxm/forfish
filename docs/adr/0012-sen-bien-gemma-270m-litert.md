@@ -128,3 +128,9 @@ Fine-tune lại trên dữ liệu v4 (gpu-desktop, cùng công thức nén int4 
 - **Android**: build debug + thử gói on-demand ở gpu-desktop (ops/native-deploy §3e) — plugin chạy, gói tải ~20 s, 1,1–2,6 s/câu trên emulator x86_64 khi máy bận.
 - **Chưa kiểm — chặn phát hành**: điện thoại thật cả hai nền (≤ ~1,5 s/câu).
 
+## Cập nhật 2026-11-13 — cờ `senBienGemma`, mặc định TẮT (Android)
+
+- **Sự cố**: Play Console báo bản 1.0.4 (versionCode 5) *"no longer supports 19,575 devices that were supported in your previous release"*. Nguyên nhân đo trong AAB: `liblitertlm_jni.so` chỉ có `arm64-v8a` + `x86_64` ⇒ Play loại mọi máy chỉ chạy 32-bit (máy cũ, máy giá rẻ Android Go — đúng nhóm máy của ngư dân). Bản đó lại KHÔNG kèm mô hình (máy build không có file) ⇒ mất máy mà Gemma không chạy. Hệ quả này chưa được ghi khi duyệt phân phối 17/10.
+- **Quyết định** (Nam, 13/11, sau phân tích tổng thể): `android/app/build.gradle` có cờ `-PsenBienGemma=true`. **Mặc định TẮT** ⇒ bỏ `liblitertlm*.so` + không gắn gói `senbiengemma` (kể cả máy có file mô hình). Bật mà thiếu mô hình ⇒ build DỪNG. CI: ô `senBienGemma` (mặc định tắt; tag cũng tắt), chỉ khi bật mới tải `sen-bien-gemma-v2`. Plugin + code web giữ nguyên — tắt cờ thì plugin trả "chưa có mô hình", Sen Biển chạy n-gram + luật như web và như 1.0.3 (Gemma CHƯA từng tới tay bà con qua Play).
+- **Đo**: tắt cờ ⇒ AAB 0 thư viện native, 5,1 MB (có LiteRT: 25,5 MB); bật + có mô hình ⇒ đủ `.so` 64-bit + gói on-demand. 1.0.4 phát hành bằng versionCode 6 (5 đã dùng trên Play).
+- **Bật lại = ĐỔI máy 32-bit lấy Gemma** — quyết định của chủ dự án, chỉ sau khi qua mục "Chưa kiểm — chặn phát hành" ở trên; ghi vào đây trước khi phát hành. Phương án giữ được máy 32-bit: LiteRT-LM có bản `armeabi-v7a` (chưa có ở 0.18.0) hoặc phát hành hai bản theo ABI (chưa kiểm Play có cho với AAB không).

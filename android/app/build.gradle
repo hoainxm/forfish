@@ -21,8 +21,9 @@ android {
         // versionName ngay ở hai dòng dưới, commit cùng bản phát hành. Build tay lẫn CI (android-release.yml)
         // đều đọc từ đây; -PappVersionCode/-PappVersionName chỉ để ĐÈ khi cần (vd thử nội bộ).
         // ⚠ KHÔNG sinh số theo giờ (%y%j%H%M, bỏ 13/11): Play Console CHẶN ĐỎ bản 263170430 nhảy từ 4 —
-        // "version code is significantly higher than your previous version code". Bản 5 / 1.0.4 = 13/11/2026.
-        versionCode (project.hasProperty('appVersionCode') ? project.property('appVersionCode').toString().toInteger() : 5)
+        // "version code is significantly higher than your previous version code". 13/11/2026: số 5 đã dùng trên Play
+        // (bản 1.0.4 có LiteRT, không phát hành) ⇒ 1.0.4 phát hành bằng 6.
+        versionCode (project.hasProperty('appVersionCode') ? project.property('appVersionCode').toString().toInteger() : 6)
         versionName (project.hasProperty('appVersionName') ? project.property('appVersionName').toString() : "1.0.4")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -41,11 +42,28 @@ android {
             }
         }
     }
-    // Gemma của Sen Biển đi gói on-demand riêng (Play Asset Delivery) — bản cài không phình 62 MB.
-    // File mô hình không vào git: CHỈ gắn gói khi file có mặt (CI tải về trước khi build). Thiếu file thì
-    // vẫn build được — app không có Gemma, Sen Biển chạy n-gram + luật như bản web (ADR 0012).
-    if (rootProject.file("sen-bien-gemma/src/main/assets/sen-bien/gemma.litertlm").exists()) {
+    // CỜ senBienGemma (2026-11-13) — Gemma của Sen Biển (ADR 0012) CHỈ vào bản build khi bật RÕ RÀNG:
+    //   -PsenBienGemma=true ⇒ gắn gói on-demand :sen-bien-gemma (mô hình 62 MB, Play Asset Delivery) + giữ thư viện
+    //   native LiteRT. Bật mà thiếu file mô hình ⇒ DỪNG build (không lặng lẽ ra bản "có LiteRT mà không có Gemma").
+    //   Mặc định TẮT ⇒ bỏ liblitertlm*.so khỏi bản cài và không gắn gói, kể cả khi máy có sẵn file mô hình.
+    // Vì sao mặc định tắt: LiteRT-LM chỉ có .so 64-bit (arm64-v8a, x86_64) ⇒ có nó là Play loại MỌI máy 32-bit —
+    // bản 1.0.4 (13/11) bị Play báo "no longer supports 19,575 devices" so với 1.0.3, trong khi bản đó KHÔNG kèm
+    // mô hình (Gemma không chạy). ADR 0012 còn ghi Gemma "chặn phát hành" tới khi thử điện thoại thật. Tắt cờ thì
+    // app không có Gemma: plugin vẫn đăng ký nhưng trả "chưa có mô hình", Sen Biển chạy n-gram + luật như web.
+    // Bật lại = quyết định ĐỔI máy 32-bit lấy Gemma — của chủ dự án, ghi vào ADR 0012 trước khi phát hành.
+    def senBienGemma = (project.findProperty('senBienGemma') ?: 'false').toString() == 'true'
+    def gemmaModel = rootProject.file("sen-bien-gemma/src/main/assets/sen-bien/gemma.litertlm")
+    if (senBienGemma) {
+        if (!gemmaModel.exists()) {
+            throw new GradleException("senBienGemma=true nhưng thiếu ${gemmaModel} — chép mô hình vào (hoặc bỏ cờ để build bản không Gemma)")
+        }
         assetPacks = [":sen-bien-gemma"]
+    } else {
+        packaging {
+            jniLibs {
+                excludes += ['**/liblitertlm*.so']
+            }
+        }
     }
     buildTypes {
         release {
