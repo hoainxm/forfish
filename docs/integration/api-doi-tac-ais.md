@@ -2,7 +2,7 @@
 
 > Tài liệu gửi kèm token cho đơn vị tích hợp, theo báo giá **BG-AIS-2026-01** (30/10/2026).
 > Bản kỹ thuật nội bộ: `src/lib/doi-tac.ts`, `src/lib/doi-tac-khu-vuc.ts`, `src/app/api/doi-tac/v1/*`, cấp khoá `scripts/doi-tac-khoa.mjs`.
-> **Phiên bản API**: v1 — 2026-11-02. Đổi tên trường hay bỏ trường = lên `v2`, không sửa `v1`.
+> **Phiên bản API**: v1 — 2026-11-02, cập nhật 2026-11-13 (`id` thành mã riêng cho từng đơn vị, khuôn trường giữ nguyên). Đổi tên trường hay bỏ trường = lên `v2`, không sửa `v1`.
 
 ---
 
@@ -66,7 +66,7 @@ curl -H "Authorization: Bearer $TOKEN" "https://forfish.vercel.app/api/doi-tac/v
   "count": 1,
   "vessels": [
     {
-      "id": "4123456",
+      "id": "3f9a1c0e7b2d4a65",
       "zone": 1,
       "track_available": true,
       "mmsi": 574090158,
@@ -91,7 +91,7 @@ curl -H "Authorization: Bearer $TOKEN" "https://forfish.vercel.app/api/doi-tac/v
 
 | Trường | Kiểu | Ý nghĩa |
 |---|---|---|
-| `id` | chuỗi | Mã tàu trong hệ thống SDFish. Dùng gọi `/tau/vet` |
+| `id` | chuỗi | Mã tàu riêng cấp cho Quý đơn vị (16 ký tự 0–9, a–f), cố định cho cùng một tàu. Dùng gọi `/tau/vet` |
 | `zone` | số 1–5 | Khu vực tàu đang ở |
 | `track_available` | bool | `true` = xem được lộ trình 7 ngày. `false` = tàu chỉ thu qua vệ tinh, mã đổi mỗi bản |
 | `mmsi` / `imo` / `callsign` | số / số / chuỗi, có thể `null` | Nhận dạng theo những gì tàu phát. Tàu cá Việt Nam thường có MMSI (574…), gần như không có IMO |
@@ -110,7 +110,7 @@ curl -H "Authorization: Bearer $TOKEN" "https://forfish.vercel.app/api/doi-tac/v
 
 ### 2.3 `GET /tau/vet` — lộ trình 7 ngày của một tàu
 
-Một điểm mỗi giờ, 7 ngày gần nhất, **chỉ các điểm nằm trong khu vực của Quý đơn vị**. Gọi bằng `id` (từ `/tau`) hoặc `mmsi`.
+Một điểm mỗi giờ, 7 ngày gần nhất, **chỉ các điểm nằm trong khu vực của Quý đơn vị**. Gọi bằng `id` (từ `/tau`) hoặc `mmsi`. Tàu phải đang có trong bản hiện tại thuộc khu vực của Quý đơn vị.
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" "https://forfish.vercel.app/api/doi-tac/v1/tau/vet?mmsi=574090158"
@@ -119,7 +119,7 @@ curl -H "Authorization: Bearer $TOKEN" "https://forfish.vercel.app/api/doi-tac/v
 ```json
 {
   "ok": true,
-  "id": "4123456",
+  "id": "3f9a1c0e7b2d4a65",
   "count": 2,
   "points": [
     { "time": "2026-11-01T22:00:00.000Z", "lat": 20.01, "lon": 107.30, "speed_kn": 0.2, "zone": 1 },
@@ -157,7 +157,7 @@ Mọi lỗi trả `{ "ok": false, "code": "<mã>" }`.
 | 401 | `unauthorized` | Thiếu token / token sai / đã thu hồi | Kiểm header, liên hệ SDVICO |
 | 403 | `zone_not_licensed` | Hỏi khu vực chưa có trong hợp đồng | Bỏ `zone` đó hoặc mở rộng license |
 | 404 | `no_data` | Chưa có bản dữ liệu (hiếm, lúc mới khởi tạo) | Thử lại sau 10 phút |
-| 404 | `vessel_not_found` | MMSI không có trong bản hiện tại thuộc khu vực của Quý đơn vị | — |
+| 404 | `vessel_not_found` | `id`/MMSI không có trong bản hiện tại thuộc khu vực của Quý đơn vị | — |
 | 429 | `rate_limited` | Vượt 120 lượt / 10 phút | Đợi theo header `Retry-After` |
 | 503 | `source_down`, `not_configured` | Hệ thống tạm gián đoạn | Thử lại sau, báo SDVICO nếu kéo dài |
 
@@ -196,6 +196,7 @@ while True:
 
 - Dữ liệu theo hiện trạng tín hiệu AIS do tàu tự phát. Tàu không phát hoặc phát sai thì dữ liệu không có hoặc sai.
 - Không thay thế hệ thống giám sát tàu cá (VMS) hay thông tin của cơ quan chức năng.
+- Quý đơn vị được dùng dữ liệu cho hoạt động nội bộ và hiển thị trong hệ thống, sản phẩm của mình; không bán lại, cấp lại hay phân phối dữ liệu thô cho bên thứ ba.
 - Quý đơn vị tự giữ bảo mật token. Lộ token ⇒ báo SDVICO để thu hồi và cấp token mới.
 
 **Liên hệ kỹ thuật**: Công ty SDVICO · Hotline 0939 243 222 · sdvico.vn

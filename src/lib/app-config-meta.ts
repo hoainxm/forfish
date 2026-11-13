@@ -164,6 +164,17 @@ export const CONFIG_KEYS: ConfigKeyMeta[] = [
     envVar: "DOI_TAC_AIS",
     help: "Dạng ten:sha256hex:khu:goi (vd …:135:60 = khu 1,3,5 gói 60 phút), cách nhau dấu phẩy. Đừng gõ tay — cấp/thu bằng: node scripts/doi-tac-khoa.mjs cap <ten> --khu 135 --goi 60 | thu <ten> | ds.",
   },
+  /*  KHOÁ MÃ TÀU ĐỐI TÁC (2026-11-13): `id` tàu trả cho đơn vị tích hợp = HMAC(khoá, tên đối tác + mã nội bộ) — KHÔNG lộ mã của
+      nguồn thu, mỗi đối tác thấy một bộ mã riêng (dữ liệu lộ ra ngoài thì tra được của ai). Thiếu ⇒ API đối tác 503. */
+  {
+    key: "doi_tac_id_khoa",
+    label: "Khoá mã tàu cho đơn vị tích hợp",
+    risk: "Đổi khoá là MỌI mã tàu đối tác đang lưu đổi hết — họ mất nối dữ liệu cũ với mới. Chỉ đổi khi khoá bị lộ, và báo trước cho đối tác.",
+    secret: true,
+    envVar: "DOI_TAC_ID_KHOA",
+    generate: "hex32",
+    help: "Đặt một lần (Tạo ngẫu nhiên → Lưu, hoặc node scripts/doi-tac-khoa.mjs khoa-id). Đừng đổi khi không có lý do.",
+  },
   /*  TRẦN KHO Ô BẢN ĐỒ (2026-11-04, lib/kho-o-ban-do): ngăn máy chủ tự tải vượt trần thì xoá ô cũ nhất. Chưa đặt = 2048 MB. */
   {
     key: "kho_o_tran_mb",

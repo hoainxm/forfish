@@ -9,7 +9,7 @@
 // Khoá: `app_config.doi_tac_ais` (env DOI_TAC_AIS đè nếu đặt) = "ten:sha256hex:khu:goi,…" (vd `doi-tac-1:ab…:135:60`
 // = khu 1, 3, 5, gói 60 phút). Chỉ lưu BĂM — token rõ in một lần lúc cấp (scripts/doi-tac-khoa.mjs). Thu hồi = gỡ đúng mục.
 
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { idCoDinh, LOAI_TAU } from "@/lib/tau-ais/chuan-hoa.mjs";
 import { khuVucCua } from "@/lib/doi-tac-khu-vuc";
 import type { TauAis, TauAisBan } from "@/lib/tau-ais";
@@ -109,6 +109,13 @@ export function docLocTau(sp: URLSearchParams, khuMua: number[]): { loc: LocTau 
   return { loc };
 }
 
+/** Mã tàu CÔNG KHAI (2026-11-13): HMAC-SHA256(khoá `doi_tac_id_khoa`, "<tên đối tác>:<mã nội bộ>") ⇒ 16 hex. Mã nội bộ là mã của
+ *  nguồn thu ⇒ trả thẳng là lộ nguồn; HMAC có khoá nên không dò ngược được (mã nội bộ chỉ vài triệu số — băm trần dò được).
+ *  Theo TÊN đối tác ⇒ hai đối tác thấy hai bộ mã khác nhau, dữ liệu lộ ra ngoài thì biết của ai. Mã nội bộ cố định ⇒ mã công khai cố định. */
+export function idCongKhai(khoa: string, ten: string, id: string): string {
+  return createHmac("sha256", khoa).update(`${ten}:${id}`, "utf8").digest("hex").slice(0, 16);
+}
+
 /** Một tàu ở khuôn CÔNG KHAI (khoá tiếng Anh, đơn vị ghi rõ) — đổi tên trường ở đây là breaking với đối tác. */
 export interface TauCongKhai {
   id: string;
@@ -136,9 +143,9 @@ export interface TauCongKhai {
 
 const tenLoai = (l: number) => (LOAI_TAU as Record<number, string>)[l] ?? LOAI_TAU[0];
 
-export function tauCongKhai(t: TauAis, lucBanMs: number, zone: number): TauCongKhai {
+export function tauCongKhai(t: TauAis, lucBanMs: number, zone: number, maId: (id: string) => string): TauCongKhai {
   return {
-    id: t.id,
+    id: maId(t.id),
     zone,
     track_available: idCoDinh(t.id),
     mmsi: t.mmsi ?? null,
@@ -159,8 +166,9 @@ export function tauCongKhai(t: TauAis, lucBanMs: number, zone: number): TauCongK
   };
 }
 
-/** Lọc bản AIS theo khu vực + bộ lọc rồi đổi sang khuôn công khai. Bản hỏng ⇒ mảng rỗng. */
-export function locTau(ban: TauAisBan, loc: LocTau): TauCongKhai[] {
+/** Lọc bản AIS theo khu vực + bộ lọc rồi đổi sang khuôn công khai (`maId` = idCongKhai đã gắn khoá + tên đối tác).
+ *  Bản hỏng ⇒ mảng rỗng. */
+export function locTau(ban: TauAisBan, loc: LocTau, maId: (id: string) => string): TauCongKhai[] {
   const lucMs = Date.parse(ban.luc);
   if (!Number.isFinite(lucMs) || !Array.isArray(ban.tau)) return [];
   const out: TauCongKhai[] = [];
@@ -173,9 +181,15 @@ export function locTau(ban: TauAisBan, loc: LocTau): TauCongKhai[] {
     if (loc.mmsi != null && t.mmsi !== loc.mmsi) continue;
     const zone = khuVucCua(t.lat, t.lon);
     if (zone == null || !loc.khu.includes(zone)) continue;
-    out.push(tauCongKhai(t, lucMs, zone));
+    out.push(tauCongKhai(t, lucMs, zone, maId));
   }
   return out;
+}
+
+/** Mã công khai ⇒ mã nội bộ, tra trong bản theo gói (HMAC không đảo được). Tàu đã rời bản ⇒ null. */
+export function timIdNoiBo(ban: TauAisBan | null, maCongKhai: string, maId: (id: string) => string): string | null {
+  if (!ban || !Array.isArray(ban.tau) || !/^[0-9a-f]{16}$/.test(maCongKhai)) return null;
+  return ban.tau.find((t) => maId(t.id) === maCongKhai)?.id ?? null;
 }
 
 /** Trần gọi mỗi đối tác: 120 lượt / 10 phút (bản mới ~10 phút một lần, quá đủ cho đồng bộ định kỳ). */

@@ -15,7 +15,7 @@ const NO_STORE = { "cache-control": "no-store" };
 export async function GET(req: Request) {
   const cua = await cuaDoiTac(req);
   if ("res" in cua) return cua.res;
-  const { dt } = cua;
+  const { dt, maId } = cua;
   const l = docLocTau(new URL(req.url).searchParams, dt.khu);
   if ("loi" in l) return Response.json({ ok: false, code: l.loi }, { status: l.loi === "zone_not_licensed" ? 403 : 400, headers: NO_STORE });
   const { payload, unreachable } = await loadWeatherSnapshot(banGoiId(dt.goi), { noStore: true });
@@ -23,7 +23,7 @@ export async function GET(req: Request) {
   const ban = payload as TauAisBan | null;
   if (!ban || typeof ban.luc !== "string" || !Array.isArray(ban.tau))
     return Response.json({ ok: false, code: "no_data" }, { status: 404, headers: NO_STORE });
-  const vessels = locTau(ban, l.loc);
+  const vessels = locTau(ban, l.loc, maId);
   const next = new Date(Date.parse(ban.luc) + dt.goi * 60_000).toISOString();
   return Response.json(
     { ok: true, updated_at: ban.luc, next_update_at: next, plan_minutes: dt.goi, zones: l.loc.khu, count: vessels.length, vessels },

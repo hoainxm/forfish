@@ -18,6 +18,7 @@ export type ConfigKey =
   | "tau_ais_xem"
   | "sdvico_lead_key"
   | "doi_tac_ais"
+  | "doi_tac_id_khoa"
   | "kho_o_tran_mb";
 
 export interface ConfigKeyMeta {
@@ -83,6 +84,7 @@ export function validateConfigValue(key: ConfigKey, value: string): boolean {
       // khoá đã đặt sẵn bên CRM (độ dài do bên đó chọn) — chỉ chặn dán lỗi: đủ dài, không khoảng trắng
       return v.length >= 16 && v.length <= 200 && !/\s/.test(v);
     case "kairos_ingest_key":
+    case "doi_tac_id_khoa":
     case "tau_ais_key":
     case "stracking_key":
     case "sdvico_lead_key":

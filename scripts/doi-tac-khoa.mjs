@@ -10,6 +10,7 @@
 //   node scripts/doi-tac-khoa.mjs cap doi-tac-1 --khu 12345 --goi 60   # cấp token mới (đè token cũ cùng tên)
 //   node scripts/doi-tac-khoa.mjs sua doi-tac-1 --khu 13 --goi 30      # đổi khu/gói, GIỮ token cũ
 //   node scripts/doi-tac-khoa.mjs thu doi-tac-1      # thu hồi
+//   node scripts/doi-tac-khoa.mjs khoa-id            # đặt khoá mã tàu `doi_tac_id_khoa` NẾU CHƯA CÓ (thiếu ⇒ API 503)
 //
 // Script chỉ ghi DB. Env DOI_TAC_AIS trên máy chủ (nếu ai đặt) ĐÈ ô DB ⇒ khi đó khoá cấp ở đây không có hiệu lực.
 
@@ -55,6 +56,15 @@ async function main() {
     else await rest.post("app_config", { key: KEY, ...dong });
   };
 
+  if (lenh === "khoa-id") {
+    // Mã tàu công khai = HMAC(khoá này, tên đối tác + mã nội bộ) — lib/doi-tac idCongKhai. Đã có thì GIỮ: đổi là đổi mọi mã đối tác đang lưu.
+    const K = "doi_tac_id_khoa";
+    const [co] = await rest.get(`app_config?select=key&key=eq.${K}`);
+    if (co) return console.log("Khoá mã tàu đã có — giữ nguyên.");
+    await rest.post("app_config", { key: K, value: randomBytes(32).toString("hex"), updated_by: "script:doi-tac-khoa", updated_at: new Date().toISOString() });
+    console.log("Đã đặt khoá mã tàu (hiệu lực sau tối đa 30 giây).");
+    return;
+  }
   if (lenh === "ds") {
     console.log(ds.length ? ds.map((k) => `- ${k.ten} · khu ${k.khu.split("").join(", ")} · gói ${k.goi} phút`).join("\n") : "(chưa có đối tác nào)");
     return;
@@ -86,7 +96,7 @@ async function main() {
     console.log(`Đã thu hồi khoá "${ten}".`);
     return;
   }
-  throw new Error("Lệnh: ds | cap <ten> --khu 135 --goi 60 | sua <ten> --khu … --goi … | thu <ten>");
+  throw new Error("Lệnh: ds | khoa-id | cap <ten> --khu 135 --goi 60 | sua <ten> --khu … --goi … | thu <ten>");
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

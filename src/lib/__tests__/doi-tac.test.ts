@@ -4,10 +4,12 @@ import {
   banGoiCanGhi,
   docKhoaDoiTac,
   docLocTau,
+  idCongKhai,
   khopDoiTac,
   layBearer,
   locTau,
   MUC_KHOA_DOI_TAC,
+  timIdNoiBo,
 } from "@/lib/doi-tac";
 import { khuVucCua } from "@/lib/doi-tac-khu-vuc";
 import { validateConfigValue } from "@/lib/app-config-keys";
@@ -79,12 +81,40 @@ const BAN: TauAisBan = {
   ],
 };
 
+const KHOA = "k".repeat(64);
+const MA = (id: string) => idCongKhai(KHOA, "doi-tac-1", id);
+/** id nội bộ ⇒ id công khai, để so kết quả */
+const ids = (kq: { id: string }[]) => kq.map((t) => [...BAN.tau].find((x) => MA(x.id) === t.id)?.id);
+
+describe("mã tàu công khai", () => {
+  it("16 hex, cố định, KHÔNG chứa mã nội bộ, khác nhau theo đối tác và theo khoá", () => {
+    const a = idCongKhai(KHOA, "doi-tac-1", "409651");
+    expect(a).toMatch(/^[0-9a-f]{16}$/);
+    expect(a).toBe(idCongKhai(KHOA, "doi-tac-1", "409651"));
+    expect(a).not.toContain("409651");
+    expect(idCongKhai(KHOA, "doi-tac-2", "409651")).not.toBe(a);
+    expect(idCongKhai("x".repeat(64), "doi-tac-1", "409651")).not.toBe(a);
+  });
+
+  it("tra ngược trong bản theo gói; mã lạ / sai khuôn / bản rỗng ⇒ null", () => {
+    expect(timIdNoiBo(BAN, MA("3"), MA)).toBe("3");
+    expect(timIdNoiBo(BAN, MA("99"), MA)).toBeNull();
+    expect(timIdNoiBo(BAN, "3", MA)).toBeNull();
+    expect(timIdNoiBo(null, MA("3"), MA)).toBeNull();
+  });
+
+  it("khoá mã: đủ dài, không khoảng trắng", () => {
+    expect(validateConfigValue("doi_tac_id_khoa", KHOA)).toBe(true);
+    expect(validateConfigValue("doi_tac_id_khoa", "ngan")).toBe(false);
+  });
+});
+
 describe("lọc tàu cho đối tác", () => {
   it("chỉ trả khu đã mua, gắn zone + last_seen", () => {
     const l = docLocTau(new URLSearchParams(), [1, 5]);
     if ("loi" in l) throw new Error(l.loi);
-    const kq = locTau(BAN, l.loc);
-    expect(kq.map((t) => [t.id, t.zone])).toEqual([["1", 1], ["3", 5]]);
+    const kq = locTau(BAN, l.loc, MA);
+    expect(kq.map((t) => [t.id, t.zone])).toEqual([[MA("1"), 1], [MA("3"), 5]]);
     expect(kq[0]).toMatchObject({ mmsi: 574000001, type_name: "Tàu cá", track_available: true, last_seen: "2026-11-02T02:57:00.000Z" });
   });
 
@@ -99,14 +129,14 @@ describe("lọc tàu cho đối tác", () => {
   it("lọc type + mmsi + bbox trong khu đã mua", () => {
     const l = docLocTau(new URLSearchParams("type=7"), [1, 2, 3, 4, 5]);
     if ("loi" in l) throw new Error(l.loi);
-    expect(locTau(BAN, l.loc).map((t) => t.id)).toEqual(["2"]);
+    expect(ids(locTau(BAN, l.loc, MA))).toEqual(["2"]);
     const m = docLocTau(new URLSearchParams("mmsi=574000001&bbox=107,19,108,21"), [1, 2, 3, 4, 5]);
     if ("loi" in m) throw new Error(m.loi);
-    expect(locTau(BAN, m.loc).map((t) => t.id)).toEqual(["1"]);
+    expect(ids(locTau(BAN, m.loc, MA))).toEqual(["1"]);
   });
 
   it("bản hỏng ⇒ mảng rỗng", () => {
-    expect(locTau({ ...BAN, luc: "hong" }, { khu: [1] })).toEqual([]);
+    expect(locTau({ ...BAN, luc: "hong" }, { khu: [1] }, MA)).toEqual([]);
   });
 });
 
