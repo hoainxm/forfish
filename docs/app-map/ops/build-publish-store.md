@@ -32,10 +32,12 @@ Còn lại phải làm **trong App Store Connect / Play Console** (không phải
 
 | Nền tảng | File | Hiện tại | Đổi thành |
 |---|---|---|---|
-| Android | `android/app/build.gradle` | `versionCode 3` / `versionName "1.0.2"` | **`versionCode 4`** / **`versionName "1.0.3"`** |
+| Android | `android/app/build.gradle` | `versionCode 5` / `versionName "1.0.4"` (13/11/2026) | **số trên Play + 1** / versionName mới — xem quy tắc dưới |
 | iOS | Xcode target (General) hoặc `ios/App/App.xcodeproj` | build 1, ver 1.0 | giữ ver **1.0**, tăng **build → số kế tiếp** (mỗi lần nộp phải tăng) |
 
-> Play **bắt buộc** `versionCode` tăng mỗi bản. App Store **bắt buộc** build number tăng mỗi lần upload (kể cả cùng version string).
+> Play **bắt buộc** `versionCode` tăng mỗi bản. Android: **Version code tăng ĐÚNG 1 mỗi bản**, ghi ở `android/app/build.gradle` (nguồn duy nhất — build tay và CI đều đọc), commit cùng bản phát hành. Bản 13/11/2026: `versionCode 5` / `1.0.4`. ⚠ KHÔNG sinh số theo giờ (`%y%j%H%M`, bỏ 13/11): Play Console CHẶN ĐỎ bản `263170430` nhảy từ `4` ("version code is significantly higher than your previous version code").
+>
+> App Store **bắt buộc** build number tăng mỗi lần upload (kể cả cùng version string).
 
 ---
 
@@ -90,7 +92,7 @@ npm run build                 # nếu chế độ (b) static bundle; chế độ
 npm run cap:sync              # cap sync — copy web + plugin sang android/
 npm run icons                 # đảm bảo icon đúng
 
-# 2. Bump version: sửa android/app/build.gradle → versionCode 4, versionName "1.0.3"
+# 2. Bump version: sửa android/app/build.gradle → versionCode = số trên Play + 1, versionName mới
 
 # 3. Build AAB đã ký (Android App Bundle — Play yêu cầu .aab, không phải .apk)
 cd android
@@ -116,7 +118,7 @@ cd android
 Workflow `.github/workflows/android-release.yml` gộp §3 bước 1–3 + upload Play qua API. **Trigger: bấm tay** (Actions → *Android release* → Run workflow) **hoặc push tag `vX.Y.Z`**. KHÔNG chạy mỗi push — chế độ (a) `server.url` nên đa số cập nhật chỉ cần deploy Vercel, không cần binary.
 
 **Cơ chế:**
-- `versionCode = date -u +%y%j%H%M` (năm·ngày-trong-năm·giờ·phút, vd `262471125` — rà soát Actions 2026-09-04 mục A: KHÔNG dùng run_number vì đó là bộ đếm riêng từng repo, hai repo cùng file là hai bộ đếm, bên nào phát hành số lớn trước là bên kia bị Play từ chối mãi) → tự tăng, đơn điệu ở mọi repo, khỏi sửa `build.gradle` tay. `versionName` lấy từ input hoặc tag (`v1.0.4` → `1.0.4`); `build.gradle` đọc qua `-PappVersionCode/-PappVersionName` (fallback giá trị chốt tay khi build local).
+- `versionCode` = số trong `android/app/build.gradle` (tăng 1 trong commit phát hành); ô nhập `versionCode` của workflow chỉ để đè (phải là số nguyên dương, sai thì job dừng). KHÔNG dùng run_number (rà soát Actions 2026-09-04 mục A — mỗi repo một bộ đếm) và KHÔNG sinh theo giờ `%y%j%H%M` (bỏ 2026-11-13: Play chặn đỏ bản 263170430 nhảy từ 4). `versionName` lấy từ input hoặc tag (`v1.0.4` → `1.0.4`), bỏ trống = `build.gradle`.
 - Ký bằng keystore khôi phục từ secret → ghi `android/keystore.properties` runtime (không commit).
 - Upload bằng plugin **Gradle Play Publisher** (`com.github.triplet.play`, classpath ở `android/build.gradle`, block `play{}` ở `android/app/build.gradle`) đọc credential từ env `ANDROID_PUBLISHER_CREDENTIALS`. Track mặc định `internal`.
 - KHÔNG chạy `cap add`; chỉ `cap sync` + `npm run icons`. Web là **stub** (`out/index.html`) vì `server.url` load Vercel lúc chạy.

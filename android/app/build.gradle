@@ -17,11 +17,13 @@ android {
         applicationId "vn.sdvico.forfish"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // CI (android-release.yml) truyền -PappVersionCode/-PappVersionName để tự
-        // tăng versionCode (Play bắt buộc mỗi upload phải lớn hơn lần trước) mà không
-        // sửa file. Build local không truyền → dùng giá trị chốt tay bên dưới.
-        versionCode (project.hasProperty('appVersionCode') ? project.property('appVersionCode').toString().toInteger() : 4)
-        versionName (project.hasProperty('appVersionName') ? project.property('appVersionName').toString() : "1.0.3")
+        // NGUỒN DUY NHẤT của số phiên bản (2026-11-13): mỗi lần phát hành TĂNG versionCode đúng 1 + đổi
+        // versionName ngay ở hai dòng dưới, commit cùng bản phát hành. Build tay lẫn CI (android-release.yml)
+        // đều đọc từ đây; -PappVersionCode/-PappVersionName chỉ để ĐÈ khi cần (vd thử nội bộ).
+        // ⚠ KHÔNG sinh số theo giờ (%y%j%H%M, bỏ 13/11): Play Console CHẶN ĐỎ bản 263170430 nhảy từ 4 —
+        // "version code is significantly higher than your previous version code". Bản 5 / 1.0.4 = 13/11/2026.
+        versionCode (project.hasProperty('appVersionCode') ? project.property('appVersionCode').toString().toInteger() : 5)
+        versionName (project.hasProperty('appVersionName') ? project.property('appVersionName').toString() : "1.0.4")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

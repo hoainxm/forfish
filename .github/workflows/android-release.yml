@@ -26,6 +26,10 @@ on:
         description: "versionName hiển thị (vd 1.0.4). Bỏ trống = giữ mặc định build.gradle."
         required: false
         default: ""
+      versionCode:
+        description: "versionCode (số nguyên, lớn hơn bản trên Play ĐÚNG 1). Bỏ trống = đọc android/app/build.gradle."
+        required: false
+        default: ""
       track:
         description: "Play track"
         required: true
@@ -60,19 +64,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # versionCode phải TĂNG mỗi upload. THEO GIỜ UTC, KHÔNG theo run_number
-      # (rà soát 2026-09-04, mục A): run_number là bộ đếm RIÊNG của từng workflow
-      # trong từng repo — cùng file này nằm ở hai repo là hai bộ đếm, bên nào
-      # phát hành số lớn trước là bên kia bị Play từ chối mãi; đổi tên file cũng
-      # về 0. `%y%j%H%M` = năm-ngàytrongnăm-giờ-phút (vd 262471830): đơn điệu
-      # tăng, giống nhau ở mọi repo, > mọi số cũ (10xxx), và < trần Play
-      # 2.100.000.000 (max 993652359). KHÔNG dùng %y%m%d%H%M: 2,6 tỷ, tràn int32.
-      # Hai lần phát hành trong CÙNG một phút thì lần sau bị Play từ chối —
-      # chấp nhận, lỗi đó nói thẳng lý do. Nâng cấp sau: play-publisher
-      # `resolutionStrategy = AUTO` (hỏi Play số hiện tại rồi +1) — cần
-      # PLAY_SERVICE_ACCOUNT_JSON ngay cả khi chỉ build, nên chưa dùng.
+      # versionCode = SỐ TRONG android/app/build.gradle (nguồn duy nhất, tăng 1 mỗi bản trong
+      # commit phát hành) — ô nhập `versionCode` chỉ để đè. KHÔNG sinh theo giờ nữa (2026-11-13):
+      # `%y%j%H%M` cho 263170430 nhảy từ 4 ⇒ Play Console CHẶN ĐỎ "version code is significantly
+      # higher than your previous version code". KHÔNG dùng run_number (rà soát 2026-09-04, mục A):
+      # mỗi repo một bộ đếm riêng. Ô nhập phải là số nguyên dương — sai thì dừng, không build mù.
       - name: Tính versionCode
-        run: echo "APP_VERSION_CODE=$(date -u +%y%j%H%M)" >> "$GITHUB_ENV"
+        run: |
+          CODE="${{ inputs.versionCode }}"
+          if [ -n "$CODE" ] && ! [[ "$CODE" =~ ^[1-9][0-9]{0,8}$ ]]; then
+            echo "::error::versionCode \"$CODE\" không phải số nguyên dương"; exit 1
+          fi
+          echo "APP_VERSION_CODE=$CODE" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v4
         with:
@@ -94,7 +97,7 @@ jobs:
             NAME="${GITHUB_REF_NAME#v}"   # tag v1.0.4 -> 1.0.4
           fi
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
-          echo "versionCode=$APP_VERSION_CODE  versionName=${NAME:-<mặc định build.gradle>}"
+          echo "versionCode=${APP_VERSION_CODE:-<mặc định build.gradle>}  versionName=${NAME:-<mặc định build.gradle>}"
 
       # Chế độ (a) server.url: web load từ sdfish.sdvico.vn lúc chạy. cap sync vẫn cần webDir
       # 'out' tồn tại để copy → tạo stub tối thiểu (bị server.url ghi đè runtime).
@@ -159,7 +162,7 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew --no-daemon bundleRelease \
-            -PappVersionCode=${APP_VERSION_CODE} \
+            ${APP_VERSION_CODE:+-PappVersionCode=$APP_VERSION_CODE} \
             ${{ steps.ver.outputs.name && format('-PappVersionName={0}', steps.ver.outputs.name) || '' }}
 
       - name: Lưu AAB làm artifact
@@ -180,6 +183,6 @@ jobs:
             exit 1
           fi
           ./gradlew --no-daemon publishReleaseBundle \
-            -PappVersionCode=${APP_VERSION_CODE} \
+            ${APP_VERSION_CODE:+-PappVersionCode=$APP_VERSION_CODE} \
             ${{ steps.ver.outputs.name && format('-PappVersionName={0}', steps.ver.outputs.name) || '' }} \
             -PplayTrack=${{ inputs.track || 'internal' }}

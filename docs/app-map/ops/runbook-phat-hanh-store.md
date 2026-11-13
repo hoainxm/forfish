@@ -20,7 +20,7 @@ Studio, mật khẩu keystore, tài khoản Apple/Google, thao tác store consol
 2. `npm ci`
 3. `npm run build` + `npm run lint` + `npm test`
 4. Tạo `out/` stub → `npx cap sync android` → `npm run icons`
-5. *(nếu build tay)* bump `versionCode`/`versionName` trong `android/app/build.gradle`
+5. Bump `versionCode` (số trên Play **+ 1**, không nhảy cóc) + `versionName` trong `android/app/build.gradle` — cả build tay lẫn CI đều đọc từ đây
 6. Báo "prep xong" + trạng thái build/test/lint.
 
 → 👤 **Bạn làm tiếp**: `npm run cap:open:android` → Android Studio → *Generate Signed Bundle* →
@@ -135,8 +135,8 @@ curl -s https://sdfish.sdvico.vn/quyen-rieng-tu | grep "quyền riêng tư"
 > Chỉ đi tiếp mục 3/4 khi cần binary mới (đổi icon/plugin, bump version, đóng reject).
 
 **4) Bump version** (mỗi lần nộp store BẮT BUỘC tăng):
-- **Android**: nếu build bằng CI thì **tự tăng** theo giờ UTC (`versionCode = date -u +%y%j%H%M`, không dùng run_number), khỏi sửa.
-  Build tay thì sửa `android/app/build.gradle` (`versionCode` tăng, `versionName` mới).
+- **Android**: sửa `android/app/build.gradle` — `versionCode` = số đang có trên Play **+ 1** (xem Play Console → App bundle explorer), `versionName` mới — rồi commit. Build tay và CI đều đọc từ đây.
+  ⚠ KHÔNG dùng số theo giờ (`$(date -u +%y%j%H%M)`): Play chặn đỏ "version code is significantly higher…" (dính 13/11/2026, bản 263170430 nhảy từ 4). Bản 13/11: `5` / `1.0.4`.
 - **iOS**: trong Xcode → target App → General → **Build** tăng lên số lớn hơn lần upload gần nhất
   (bản `1.0 (1)` đã dùng → nộp lần sau dùng **build ≥ 2**), giữ **Version = 1.0**.
 
@@ -260,7 +260,7 @@ node scripts/generate-ios-screenshots.mjs  # iPhone 6.5"/6.7" + iPad 12.9"/13"
 **Code:**
 - [ ] `npm run build` + `npm test` (Node 24) + `npm run lint` sạch.
 - [ ] Web deploy live: `sdfish.sdvico.vn` 200 + `/quyen-rieng-tu` mở được.
-- [ ] Bump version: Android `versionCode` (CI tự / build.gradle tay) · iOS **Build** trong Xcode.
+- [ ] Bump version: Android `versionCode` +1 trong `build.gradle` (CI cũng đọc từ đó) · iOS **Build** trong Xcode.
 
 **Hồ sơ store:**
 - [ ] Privacy Policy URL = `https://sdfish.sdvico.vn/quyen-rieng-tu` (mở được).
