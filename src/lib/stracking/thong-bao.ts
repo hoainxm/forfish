@@ -129,7 +129,7 @@ const TIEU_DE_NHAC: Record<LoaiNhac, (tau: string) => string> = {
   "mkn-bo-qua-1ngay": (t) => `Tàu ${t} quá 1 ngày chưa báo vị trí`,
   "mkn-bo-sap-1ngay": (t) => `Tàu ${t} sắp 1 ngày chưa báo vị trí`,
   "han-qua-han": (t) => `Tàu ${t} quá hạn cước giám sát`,
-  "tcts-that-bai": (t) => `Tàu ${t} chưa đồng bộ Tổng cục`,
+  "tcts-that-bai": (t) => `Tàu ${t} chưa đồng bộ dữ liệu`,
   "han-sap-het": (t) => `Tàu ${t} sắp hết hạn cước giám sát`,
 };
 

@@ -385,7 +385,7 @@ export function StrackingCuaToi({
               {/* Trạng thái máy trên S-Tracking (0081). Đồng bộ thất bại mới là chuyện cần thấy ⇒ dòng đỏ riêng;
                   đồng bộ được thì gộp vào dòng mờ "Đã đồng bộ · Trong bờ · cập nhật 06:45 06/11". */}
               {t.dongBoTcts && /thất bại/i.test(t.dongBoTcts) && (
-                <p className="text-[0.875rem] font-semibold text-danger">Chưa đồng bộ Tổng cục Thủy sản</p>
+                <p className="text-[0.875rem] font-semibold text-danger">Chưa đồng bộ dữ liệu</p>
               )}
               {/* TÍN HIỆU THẬT (06/11, vụ GL-99280): bỏ "cập nhật HH:MM" — đó là giờ sửa bản ghi S-Tracking, nhân viên đọc
                   thành "6 giờ không tín hiệu". Đang mất ⇒ dòng đỏ + giờ chót (ngoài khơi 6 giờ, nằm bờ 1 ngày). */}

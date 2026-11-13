@@ -233,7 +233,7 @@ export function viecNhac({ thietBi, mkn = [], now = Date.now() }) {
         khoa: `tcts|${t.serial}|${homNay}`,
         loai: "tcts-that-bai",
         day: ngoai,
-        dong: `${t.tenTau ?? t.serial}: dữ liệu máy giám sát hành trình chưa về được Tổng cục Thủy sản${ngoai ? " trong lúc tàu đang ngoài khơi" : ""}. Bà con gọi SDVICO, bên em kiểm tra giúp để tàu không bị tính mất kết nối.`,
+        dong: `${t.tenTau ?? t.serial}: dữ liệu máy giám sát hành trình chưa đồng bộ được${ngoai ? " trong lúc tàu đang ngoài khơi" : ""}. Bà con gọi SDVICO, bên em kiểm tra giúp để tàu không bị tính mất kết nối.`,
       });
     }
     // 3) HẠN CƯỚC — nhắc đúng các mốc, hết hạn = máy ngừng truyền = mất kết nối.

@@ -137,7 +137,7 @@ describe("cảnh báo thông minh — gộp thông báo tàu", () => {
       [
         { sdt: "0912345678", tau: "BV-5678-TS", loai: "han-sap-het", day: false, dong: "BV-5678-TS: còn 5 ngày hết cước." },
         { sdt: "0912345678", tau: "BV-5678-TS", loai: "mkn-qua-6h", day: true, dong: "BV-5678-TS: mất kết nối 7 giờ." },
-        { sdt: "0900000002", tau: "KG-1-TS", loai: "tcts-that-bai", day: false, dong: "KG-1-TS: chưa đồng bộ Tổng cục." },
+        { sdt: "0900000002", tau: "KG-1-TS", loai: "tcts-that-bai", day: false, dong: "KG-1-TS: chưa đồng bộ dữ liệu." },
       ],
     );
     const a = r.tin.find((t) => t.phone === "0912345678")!;
@@ -145,7 +145,7 @@ describe("cảnh báo thông minh — gộp thông báo tàu", () => {
     expect(a.body.split("\n")).toEqual(["BV-5678-TS: mất kết nối 7 giờ.", cb.body, "BV-5678-TS: còn 5 ngày hết cước."]);
     expect(a.day).toBe(true); // nhắc đẩy kéo cả tin lên máy
     const b = r.tin.find((t) => t.phone === "0900000002")!;
-    expect(b).toMatchObject({ title: "Tàu KG-1-TS chưa đồng bộ Tổng cục", day: false, tag: "stracking-0900000002", url: "/tau" });
+    expect(b).toMatchObject({ title: "Tàu KG-1-TS chưa đồng bộ dữ liệu", day: false, tag: "stracking-0900000002", url: "/tau" });
     expect(r.soDongNhac).toBe(3);
     expect(r.nhacSdt.sort()).toEqual(["0900000002", "0912345678"]);
     expect(r.nhacSdtBo).toEqual([]);
